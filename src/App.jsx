@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://uhanzkksmktlucmxevls.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_44AbuuHbYKcPWNlT9VlXUw_u4-bb'; 
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoYW56a2tzbWt0bHVjbXhldmxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDMzOTcsImV4cCI6MjEwNzQ3OTM5N30.-wbrxlsladhQpVlcgwIZSr9P9wy6kP5ZT3wClDtfJAk';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -19,7 +19,7 @@ export default function App() {
     'SAYLLA-01': { id: 'SAYLLA-01', nombre: 'Obra Saylla 01 (Tableros Industriales)', ubicacion: 'Av. Principal Saylla #45', presupuestoTotal: 3800, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] }
   };
 
-  // 1. Cargar desde memoria local del navegador (Instantáneo)
+  // Carga desde memoria local
   const [obras, setObras] = useState(() => {
     const saved = localStorage.getItem('obras_db_cache');
     return saved ? JSON.parse(saved) : obrasPorDefecto;
@@ -35,7 +35,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Guardado local automático
   useEffect(() => {
     localStorage.setItem('obras_db_cache', JSON.stringify(obras));
   }, [obras]);
@@ -48,7 +47,6 @@ export default function App() {
     localStorage.setItem('pagos_personal_db_cache', JSON.stringify(historialPagosPersonal));
   }, [historialPagosPersonal]);
 
-  // 2. Sincronizar con Supabase en la Nube
   const cargarDatosSupabase = async () => {
     setCargando(true);
     try {
@@ -112,7 +110,6 @@ export default function App() {
     cargarDatosSupabase();
   }, []);
 
-  // Formulario Estados
   const [nombreTrabajador, setNombreTrabajador] = useState('');
   const [diaSemana, setDiaSemana] = useState('Lunes');
   const [obraSeleccionada, setObraSeleccionada] = useState('LARAPA-01');
@@ -127,7 +124,6 @@ export default function App() {
   const [nombrePersonalPago, setNombrePersonalPago] = useState('');
   const [montoSueldoPago, setMontoSueldoPago] = useState('');
 
-  // Compresión liviana de fotos
   const handleCargarFoto = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -159,7 +155,6 @@ export default function App() {
     }
   };
 
-  // Registrar Jornada de Trabajo
   const handleRegistrarJornadaUnificada = async (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -182,7 +177,6 @@ export default function App() {
       }
     }));
 
-    // Guardar en Supabase
     try {
       await supabase.from('asistencias').upsert({
         trabajador: nombreClean,
@@ -214,7 +208,7 @@ export default function App() {
       }));
 
       try {
-        await supabase.from('obras').upsert({ 
+        const { error: errObra } = await supabase.from('obras').upsert({ 
           id: obraSeleccionada,
           nombre: obraPrev.nombre,
           ubicacion: obraPrev.ubicacion,
@@ -225,6 +219,7 @@ export default function App() {
           foto: fotoGuardar,
           finalizada: obraPrev.finalizada
         });
+        if (errObra) alert("Error al guardar en la base de datos: " + errObra.message);
       } catch(err) {
         console.error(err);
       }
