@@ -8,32 +8,36 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export default function App() {
   const [tab, setTab] = useState('trabajador');
+  const [cargando, setCargando] = useState(true);
 
-  const [obras, setObras] = useState({
+  // Obras iniciales de respaldo
+  const obrasPorDefecto = {
     'LARAPA-01': { id: 'LARAPA-01', nombre: 'Obra Larapa 01 (Casa Residencial)', ubicacion: 'Sector Larapa #12', presupuestoTotal: 6500, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
     'LARAPA-02': { id: 'LARAPA-02', nombre: 'Obra Larapa 02 (Remodelación Eléctrica)', ubicacion: 'Sector Larapa #45', presupuestoTotal: 4200, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
     'ANDINA-01': { id: 'ANDINA-01', nombre: 'Obra Andina 01 (Cableado General)', ubicacion: 'Urbanización Andina B-4', presupuestoTotal: 8200, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
     'ANDINA-02': { id: 'ANDINA-02', nombre: 'Obra Andina 02 (Instalación Luminarias)', ubicacion: 'Urbanización Andina C-10', presupuestoTotal: 5100, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
     'SAYLLA-01': { id: 'SAYLLA-01', nombre: 'Obra Saylla 01 (Tableros Industriales)', ubicacion: 'Av. Principal Saylla #45', presupuestoTotal: 3800, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] }
-  });
+  };
 
+  const [obras, setObras] = useState(obrasPorDefecto);
   const [asistenciasGlobales, setAsistenciasGlobales] = useState({});
 
-  useEffect(() => {
-    cargarDatosSupabase();
-  }, []);
-
+  // Cargar datos desde Supabase
   const cargarDatosSupabase = async () => {
+    setCargando(true);
     try {
-      const { data: dataObras } = await supabase.from('obras').select('*');
-      if (dataObras && dataObras.length > 0) {
-        const obrasMap = { ...obras };
+      // 1. Cargar Obras
+      const { data: dataObras, error: errObras } = await supabase.from('obras').select('*');
+      if (errObras) {
+        console.error("Error al cargar obras:", errObras);
+      } else if (dataObras && dataObras.length > 0) {
+        const obrasMap = { ...obrasPorDefecto };
         dataObras.forEach((o) => {
           obrasMap[o.id] = {
             id: o.id,
-            nombre: o.nombre,
-            ubicacion: o.ubicacion,
-            presupuestoTotal: Number(o.presupuesto_total) || 0,
+            nombre: o.nombre || obrasPorDefecto[o.id]?.nombre || o.id,
+            ubicacion: o.ubicacion || obrasPorDefecto[o.id]?.ubicacion || '',
+            presupuestoTotal: Number(o.presupuesto_total) || obrasPorDefecto[o.id]?.presupuestoTotal || 0,
             montoRecibido: Number(o.monto_recibido) || 0,
             porcentajeAvance: Number(o.porcentaje_avance) || 0,
             avancesPorDia: o.avances_por_dia || { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
@@ -43,18 +47,7 @@ export default function App() {
           };
         });
 
-        const { data: dataAsis } = await supabase.from('asistencias').select('*');
-        if (dataAsis) {
-          const mapAsis = {};
-          dataAsis.forEach((a) => {
-            mapAsis[a.trabajador] = {
-              dias: a.dias || [],
-              ultimaObra: a.obra_id || ''
-            };
-          });
-          setAsistenciasGlobales(mapAsis);
-        }
-
+        // 2. Cargar Pagos del Dueño
         const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
         if (dataPagos) {
           dataPagos.forEach((p) => {
@@ -66,10 +59,31 @@ export default function App() {
 
         setObras(obrasMap);
       }
+
+      // 3. Cargar Asistencias
+      const { data: dataAsis, error: errAsis } = await supabase.from('asistencias').select('*');
+      if (errAsis) {
+        console.error("Error al cargar asistencias:", errAsis);
+      } else if (dataAsis) {
+        const mapAsis = {};
+        dataAsis.forEach((a) => {
+          mapAsis[a.trabajador] = {
+            dias: a.dias || [],
+            ultimaObra: a.obra_id || ''
+          };
+        });
+        setAsistenciasGlobales(mapAsis);
+      }
     } catch (e) {
-      console.error("Error al sincronizar datos:", e);
+      console.error("Error crítico de conexión con Supabase:", e);
+    } finally {
+      setCargando(false);
     }
   };
+
+  useEffect(() => {
+    cargarDatosSupabase();
+  }, []);
 
   const [historialPagosPersonal, setHistorialPagosPersonal] = useState([]);
   const [nombreTrabajador, setNombreTrabajador] = useState('');
@@ -86,6 +100,7 @@ export default function App() {
   const [nombrePersonalPago, setNombrePersonalPago] = useState('');
   const [montoSueldoPago, setMontoSueldoPago] = useState('');
 
+  // Compresión liviana de fotos
   const handleCargarFoto = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -117,6 +132,7 @@ export default function App() {
     }
   };
 
+  // Registrar Jornada de Trabajo y Guardar Permanentemente en Supabase
   const handleRegistrarJornadaUnificada = async (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -131,6 +147,7 @@ export default function App() {
     const totalDiasCount = nuevosDias.length;
     const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
 
+    // Actualizar estado local
     const nuevoRegistroGlobal = {
       ...asistenciasGlobales,
       [nombreClean]: {
@@ -140,12 +157,18 @@ export default function App() {
     };
     setAsistenciasGlobales(nuevoRegistroGlobal);
 
-    await supabase.from('asistencias').upsert({
+    // Guardar en Supabase (Asistencia)
+    const { error: errAsis } = await supabase.from('asistencias').upsert({
       trabajador: nombreClean,
       obra_id: obraSeleccionada,
       dias: nuevosDias
     }, { onConflict: 'trabajador' });
 
+    if (errAsis) {
+      alert('Error al guardar asistencia en la base de datos: ' + errAsis.message);
+    }
+
+    // Procesar avance y foto si se ingresaron
     const incremento = parseInt(avanceInput) || 0;
     if (incremento > 0 || fotoPreview) {
       const obraPrev = obras[obraSeleccionada];
@@ -166,18 +189,22 @@ export default function App() {
         }
       }));
 
-      await supabase.from('obras')
-        .upsert({ 
-          id: obraSeleccionada,
-          nombre: obraPrev.nombre,
-          ubicacion: obraPrev.ubicacion,
-          presupuesto_total: obraPrev.presupuestoTotal,
-          monto_recibido: obraPrev.montoRecibido,
-          porcentaje_avance: nuevoTotalAvance,
-          avances_por_dia: nuevosAvancesDia,
-          foto: fotoGuardar,
-          finalizada: obraPrev.finalizada
-        });
+      // Guardar en Supabase (Obra)
+      const { error: errObra } = await supabase.from('obras').upsert({
+        id: obraSeleccionada,
+        nombre: obraPrev.nombre,
+        ubicacion: obraPrev.ubicacion,
+        presupuesto_total: obraPrev.presupuestoTotal,
+        monto_recibido: obraPrev.montoRecibido,
+        porcentaje_avance: nuevoTotalAvance,
+        avances_por_dia: nuevosAvancesDia,
+        foto: fotoGuardar,
+        finalizada: obraPrev.finalizada
+      });
+
+      if (errObra) {
+        alert('Error al guardar avance en la base de datos: ' + errObra.message);
+      }
     }
 
     setTicketAsistencia({
@@ -304,11 +331,16 @@ export default function App() {
       <header style={{ background: '#329db8', color: '#fff', padding: '20px', borderRadius: '8px 8px 0 0', borderBottom: '4px solid #2563eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.3rem', margin: 0 }}>Sistema Control de Obras y Finanzas</h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#d6e419' }}>Sistema en Vivo - Control Semanal</p>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#d6e419' }}>
+            {cargando ? '⌛ Sincronizando con Base de Datos...' : '🟢 Conectado con Supabase'}
+          </p>
         </div>
-        <span style={{ background: 'rgba(37,99,235,0.3)', color: '#60a5fa', padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-          VERCEL ONLINE
-        </span>
+        <button 
+          onClick={cargarDatosSupabase} 
+          style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid #fff', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          🔄 Recargar Datos
+        </button>
       </header>
 
       {/* MENÚ DE NAVEGACIÓN */}
