@@ -3,52 +3,82 @@ import React, { useState } from 'react';
 export default function App() {
   const [tab, setTab] = useState('trabajador');
 
-  // Base de Datos con Presupuestos ajustados (Menores a S/. 15,000)
+  // Base de Datos de Obras (Monto recibido inicia en 0)
   const [obras, setObras] = useState({
     'LARAPA-01': {
       id: 'LARAPA-01',
-      nombre: 'Obra Larapa (Casa Residencial)',
+      nombre: 'Obra Larapa 01 (Casa Residencial)',
       ubicacion: 'Sector Larapa #12',
       presupuestoTotal: 6500,
-      montoRecibido: 2000,
+      montoRecibido: 0,
       avanceProgramado: 80,
       porcentajeAvance: 60,
       foto: null,
+      finalizada: false,
       asistencias: {
-        'Edu Flores': ['Lunes', 'Miércoles', 'Viernes']
+        'Edu Flores': ['Lunes', 'Miércoles', 'Viernes'],
+        'Marco Silva': ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
       },
-      pagosDueno: [{ fecha: '01/10/2026', monto: 2000 }]
+      pagosDueno: []
     },
-    'SAYLLA-02': {
-      id: 'SAYLLA-02',
-      nombre: 'Obra Saylla (Instalación Tableros)',
-      ubicacion: 'Av. Principal Saylla #45',
-      presupuestoTotal: 3800,
-      montoRecibido: 1500,
-      avanceProgramado: 50,
-      porcentajeAvance: 40,
+    'LARAPA-02': {
+      id: 'LARAPA-02',
+      nombre: 'Obra Larapa 02 (Remodelación Eléctrica)',
+      ubicacion: 'Sector Larapa #45',
+      presupuestoTotal: 4200,
+      montoRecibido: 0,
+      avanceProgramado: 40,
+      porcentajeAvance: 30,
       foto: null,
+      finalizada: false,
       asistencias: {},
-      pagosDueno: [{ fecha: '01/10/2026', monto: 1500 }]
+      pagosDueno: []
     },
-    'ANDINA-03': {
-      id: 'ANDINA-03',
-      nombre: 'Obra Andina (Cableado General)',
+    'ANDINA-01': {
+      id: 'ANDINA-01',
+      nombre: 'Obra Andina 01 (Cableado General)',
       ubicacion: 'Urbanización Andina B-4',
       presupuestoTotal: 8200,
-      montoRecibido: 3000,
+      montoRecibido: 0,
       avanceProgramado: 30,
       porcentajeAvance: 25,
       foto: null,
+      finalizada: false,
+      asistencias: {
+        'Julio Torres': ['Lunes', 'Martes', 'Jueves']
+      },
+      pagosDueno: []
+    },
+    'ANDINA-02': {
+      id: 'ANDINA-02',
+      nombre: 'Obra Andina 02 (Instalación Luminarias)',
+      ubicacion: 'Urbanización Andina C-10',
+      presupuestoTotal: 5100,
+      montoRecibido: 0,
+      avanceProgramado: 20,
+      porcentajeAvance: 10,
+      foto: null,
+      finalizada: false,
       asistencias: {},
-      pagosDueno: [{ fecha: '28/09/2026', monto: 3000 }]
+      pagosDueno: []
+    },
+    'SAYLLA-01': {
+      id: 'SAYLLA-01',
+      nombre: 'Obra Saylla 01 (Tableros Industriales)',
+      ubicacion: 'Av. Principal Saylla #45',
+      presupuestoTotal: 3800,
+      montoRecibido: 0,
+      avanceProgramado: 50,
+      porcentajeAvance: 40,
+      foto: null,
+      finalizada: false,
+      asistencias: {},
+      pagosDueno: []
     }
   });
 
   // Historial de pagos directos al personal
-  const [historialPagosPersonal, setHistorialPagosPersonal] = useState([
-    { trabajador: 'Edu Flores', fecha: '02/10/2026', monto: 250 }
-  ]);
+  const [historialPagosPersonal, setHistorialPagosPersonal] = useState([]);
 
   // Formulario Trabajador
   const [nombreTrabajador, setNombreTrabajador] = useState('');
@@ -63,7 +93,7 @@ export default function App() {
   const [obraConsultadaId, setObraConsultadaId] = useState(null);
   const [montoPago, setMontoPago] = useState('');
 
-  // Panel Gerencial: Pagar Personal
+  // Panel Gerencial
   const [nombrePersonalPago, setNombrePersonalPago] = useState('');
   const [montoSueldoPago, setMontoSueldoPago] = useState('');
 
@@ -138,6 +168,7 @@ export default function App() {
 
     alert(`✓ Avance del ${avanceInput}% y foto guardados correctamente.`);
     setAvanceInput('');
+    setFotoPreview(null);
   };
 
   // 3. CONSULTAR PORTAL DUEÑO
@@ -147,12 +178,12 @@ export default function App() {
     if (obras[cod]) {
       setObraConsultadaId(cod);
     } else {
-      alert('Código no encontrado. Prueba con: LARAPA-01, SAYLLA-02 o ANDINA-03');
+      alert('Código no encontrado. Prueba con: LARAPA-01, LARAPA-02, ANDINA-01, ANDINA-02 o SAYLLA-01');
       setObraConsultadaId(null);
     }
   };
 
-  // 4. REGISTRAR PAGO DEL DUEÑO (SE DESCUENTA DEL PRESUPUESTO)
+  // 4. REGISTRAR PAGO DEL DUEÑO
   const handleRealizarPagoDueno = (e) => {
     e.preventDefault();
     const pago = parseFloat(montoPago);
@@ -184,7 +215,7 @@ export default function App() {
     setMontoPago('');
   };
 
-  // 5. GERENTE: PAGAR A PERSONAL (Solo Nombre y Monto + Consulta de Asistencia)
+  // 5. GERENTE: PAGAR A PERSONAL
   const handlePagarPersonal = (e) => {
     e.preventDefault();
     const pago = parseFloat(montoSueldoPago);
@@ -206,43 +237,66 @@ export default function App() {
     setMontoSueldoPago('');
   };
 
-  // Obtener total de días asistidos de un trabajador en todas las obras
-  const obtenerDiasAsistidosPersonal = (nombre) => {
-    if (!nombre.trim()) return 0;
-    let totalDias = 0;
-    Object.values(obras).forEach((obra) => {
-      Object.entries(obra.asistencias).forEach(([trabajador, dias]) => {
-        if (trabajador.toLowerCase() === nombre.trim().toLowerCase()) {
-          totalDias += dias.length;
-        }
+  // 6. REINICIAR ASISTENCIAS DE LA SEMANA (DOMINGOS)
+  const handleReiniciarAsistenciasSemana = () => {
+    if (window.confirm('¿Deseas reiniciar la lista de asistencias semanales a 0 para iniciar una nueva semana?')) {
+      setObras((prev) => {
+        const copia = { ...prev };
+        Object.keys(copia).forEach((key) => {
+          copia[key].asistencias = {};
+        });
+        return copia;
       });
-    });
-    return totalDias;
+      alert('✓ Asistencias semanales reiniciadas correctamente.');
+    }
   };
 
-  const calcularAsistenciaPromedioObra = (asistencias) => {
-    const listaTrabajadores = Object.keys(asistencias);
-    if (listaTrabajadores.length === 0) return 0;
-    const sumaPorcentajes = listaTrabajadores.reduce((acc, t) => {
-      return acc + (asistencias[t].length / 6) * 100;
-    }, 0);
-    return Math.round(sumaPorcentajes / listaTrabajadores.length);
+  // 7. FINALIZAR / ARCHIVAR OBRA
+  const handleFinalizarObra = (idObra) => {
+    if (window.confirm(`¿Confirmas que la obra ${idObra} ha sido finalizada? Pasará a obras archivadas.`)) {
+      setObras((prev) => ({
+        ...prev,
+        [idObra]: { ...prev[idObra], finalizada: true, porcentajeAvance: 100 }
+      }));
+    }
+  };
+
+  // Obtener consolidado de trabajadores para la tabla de asistencia del Gerente
+  const obtenerConsolidadoTrabajadores = () => {
+    const mapa = {};
+    Object.values(obras).forEach((obra) => {
+      Object.entries(obra.asistencias).forEach(([trabajador, dias]) => {
+        const tLower = trabajador.trim();
+        if (!mapa[tLower]) {
+          mapa[tLower] = { nombre: tLower, dias: new Set(), obra: obra.nombre };
+        }
+        dias.forEach((d) => mapa[tLower].dias.add(d));
+      });
+    });
+    return Object.values(mapa).map((item) => ({
+      nombre: item.nombre,
+      diasAsistidos: item.dias.size,
+      porcentaje: Math.round((item.dias.size / 6) * 100),
+      obra: item.obra
+    }));
   };
 
   const obraConsultada = obraConsultadaId ? obras[obraConsultadaId] : null;
-  const diasAsistidosConsulta = obtenerDiasAsistidosPersonal(nombrePersonalPago);
+  const listaConsolidadaTrabajadores = obtenerConsolidadoTrabajadores();
+  const obrasActivas = Object.values(obras).filter((o) => !o.finalizada);
+  const obrasArchivadas = Object.values(obras).filter((o) => o.finalizada);
 
   return (
     <div style={{ maxWidth: '950px', margin: '20px auto', fontFamily: 'system-ui, sans-serif', color: '#1e293b' }}>
       
       {/* ENCABEZADO */}
-      <header style={{ background: '#0f172a', color: '#fff', padding: '20px', borderRadius: '8px 8px 0 0', borderBottom: '4px solid #2563eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ background: '#329db8', color: '#fff', padding: '20px', borderRadius: '8px 8px 0 0', borderBottom: '4px solid #2563eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.3rem', margin: 0 }}>Sistema Control de Obras y Finanzas</h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>Servidor Localhost Activo</p>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#d6e419' }}>Sistema en Vivo - Control Semanal</p>
         </div>
         <span style={{ background: 'rgba(37,99,235,0.3)', color: '#60a5fa', padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-          LOCAL HOST OK
+          VERCEL ONLINE
         </span>
       </header>
 
@@ -286,7 +340,7 @@ export default function App() {
                     type="text"
                     value={nombreTrabajador}
                     onChange={(e) => setNombreTrabajador(e.target.value)}
-                    placeholder="Ej. Edu Flores"
+                    placeholder="Ej. Marco Silva"
                     style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                   />
                 </div>
@@ -314,7 +368,7 @@ export default function App() {
                   onChange={(e) => setObraSeleccionada(e.target.value)}
                   style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                 >
-                  {Object.values(obras).map((o) => (
+                  {obrasActivas.map((o) => (
                     <option key={o.id} value={o.id}>{o.nombre}</option>
                   ))}
                 </select>
@@ -329,17 +383,17 @@ export default function App() {
                   <p style={{ margin: 0, fontSize: '0.9rem' }}>
                     <strong>✓ ASISTENCIA REGISTRADA:</strong> <strong>{ticketAsistencia.trabajador}</strong> asistió el <strong>{ticketAsistencia.dia}</strong>.
                     <br />
-                    Asistencias acumuladas: <strong>{ticketAsistencia.totalDias} de 6 días</strong> (<strong style={{ color: '#16a34a' }}>{ticketAsistencia.porcentaje}%</strong>).
+                    Asistencias acumuladas esta semana: <strong>{ticketAsistencia.totalDias} de 6 días</strong> (<strong style={{ color: '#16a34a' }}>{ticketAsistencia.porcentaje}%</strong>).
                   </p>
                 </div>
               )}
             </form>
 
             <form onSubmit={handleGuardarAvance} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px' }}>
-              <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>2. Reportar Avance y Foto</h3>
+              <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>2. Reportar Avance y Foto de la Obra</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                 <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>% Avance de Obra:</label>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>% Avance Real de Obra:</label>
                   <input
                     type="number"
                     value={avanceInput}
@@ -361,7 +415,7 @@ export default function App() {
               )}
 
               <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
-                GUARDAR AVANCE Y FOTO
+                GUARDAR AVANCE Y FOTO EN LA OBRA
               </button>
             </form>
           </div>
@@ -374,7 +428,7 @@ export default function App() {
             
             <form onSubmit={handleBuscarObraDueno} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
               <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '10px' }}>
-                Ingresa el código privado de tu propiedad (Ej. <strong>LARAPA-01</strong>, <strong>SAYLLA-02</strong>, <strong>ANDINA-03</strong>):
+                Ingresa el código privado de tu propiedad (Ej. <strong>LARAPA-01</strong>, <strong>LARAPA-02</strong>, <strong>ANDINA-01</strong>, <strong>SAYLLA-01</strong>):
               </p>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <input
@@ -392,7 +446,12 @@ export default function App() {
 
             {obraConsultada && (
               <div style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', background: '#f8fafc' }}>
-                <h3 style={{ margin: 0, color: '#0f172a' }}>{obraConsultada.nombre}</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ margin: 0, color: '#0f172a' }}>{obraConsultada.nombre}</h3>
+                  {obraConsultada.finalizada && (
+                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>OBRA CONCLUIDA</span>
+                  )}
+                </div>
                 <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '4px 0 15px 0' }}>{obraConsultada.ubicacion}</p>
 
                 {/* TARJETAS PRESUPUESTO */}
@@ -413,27 +472,31 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ border: '1px solid #cbd5e1', background: '#fff', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#0f172a' }}>Abonar Cuota (en Soles)</h4>
-                  <form onSubmit={handleRealizarPagoDueno} style={{ display: 'flex', gap: '10px' }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                      <span style={{ position: 'absolute', left: '10px', top: '10px', fontWeight: 'bold', color: '#64748b' }}>S/.</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={montoPago}
-                        onChange={(e) => setMontoPago(e.target.value)}
-                        placeholder="Monto a abonar"
-                        style={{ width: '100%', padding: '10px 10px 10px 35px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
-                      />
-                    </div>
-                    <button type="submit" style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}>
-                      REGISTRAR ABONO
-                    </button>
-                  </form>
-                </div>
+                {/* REGISTRAR ABONO DEL DUEÑO */}
+                {!obraConsultada.finalizada && (
+                  <div style={{ border: '1px solid #cbd5e1', background: '#fff', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#0f172a' }}>Abonar Cuota / Pago Adelantado</h4>
+                    <form onSubmit={handleRealizarPagoDueno} style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ flex: 1, position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: '10px', top: '10px', fontWeight: 'bold', color: '#64748b' }}>S/.</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={montoPago}
+                          onChange={(e) => setMontoPago(e.target.value)}
+                          placeholder="Monto a abonar"
+                          style={{ width: '100%', padding: '10px 10px 10px 35px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <button type="submit" style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}>
+                        REGISTRAR ABONO
+                      </button>
+                    </form>
+                  </div>
+                )}
 
-                <div style={{ marginBottom: '15px' }}>
+                {/* AVANCE FÍSICO */}
+                <div style={{ marginBottom: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 'bold' }}>
                     <span>Avance Físico de Obra:</span>
                     <span style={{ color: '#2563eb' }}>{obraConsultada.porcentajeAvance}%</span>
@@ -443,15 +506,28 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* FOTO EVIDENCIA DE LA OBRA */}
+                {obraConsultada.foto && (
+                  <div style={{ marginBottom: '20px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#0f172a' }}>Última Foto de Evidencia de Avance:</h4>
+                    <img src={obraConsultada.foto} alt="Evidencia en vivo" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  </div>
+                )}
+
+                {/* HISTORIAL DE ABONOS */}
                 <div>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '6px' }}>Historial de Abonos:</p>
-                  <ul style={{ fontSize: '0.85rem', paddingLeft: '20px', color: '#334155', margin: 0 }}>
-                    {obraConsultada.pagosDueno.map((p, idx) => (
-                      <li key={idx} style={{ marginBottom: '4px' }}>
-                        Fecha {p.fecha}: <strong>S/. {p.monto.toFixed(2)}</strong>
-                      </li>
-                    ))}
-                  </ul>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '6px' }}>Historial de Abonos Recibidos:</p>
+                  {obraConsultada.pagosDueno.length === 0 ? (
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>Aún no se han registrado abonos. Saldo pendiente 100%.</p>
+                  ) : (
+                    <ul style={{ fontSize: '0.85rem', paddingLeft: '20px', color: '#334155', margin: 0 }}>
+                      {obraConsultada.pagosDueno.map((p, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>
+                          Fecha {p.fecha}: <strong>S/. {p.monto.toFixed(2)}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             )}
@@ -463,7 +539,47 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Panel de Control Gerencial</h2>
 
-            {/* MÓDULO PARA PAGAR A TRABAJADOR (SOLO NOMBRE Y MONTO) */}
+            {/* TABLA DE ASISTENCIA SEMANAL POR TRABAJADOR CON % */}
+            <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#fff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador</h3>
+                <button
+                  onClick={handleReiniciarAsistenciasSemana}
+                  style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Reiniciar Asistencias de la Semana (Domingos)
+                </button>
+              </div>
+
+              {listaConsolidadaTrabajadores.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>No hay asistencias registradas esta semana.</p>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#1e293b', color: '#fff', textAlign: 'left' }}>
+                      <th style={{ padding: '8px' }}>Trabajador</th>
+                      <th style={{ padding: '8px' }}>Obra Asignada</th>
+                      <th style={{ padding: '8px' }}>Días Asistidos</th>
+                      <th style={{ padding: '8px' }}>% Asistencia Semanal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listaConsolidadaTrabajadores.map((t, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{t.nombre}</td>
+                        <td style={{ padding: '8px', color: '#64748b' }}>{t.obra}</td>
+                        <td style={{ padding: '8px' }}>{t.diasAsistidos} / 6 días</td>
+                        <td style={{ padding: '8px', fontWeight: 'bold', color: t.porcentaje >= 80 ? '#16a34a' : '#d97706' }}>
+                          {t.porcentaje}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* MÓDULO PARA PAGAR A TRABAJADOR */}
             <form onSubmit={handlePagarPersonal} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '25px', background: '#f8fafc' }}>
               <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#0f172a' }}>Pagar Sueldo a Personal</h3>
               
@@ -474,7 +590,7 @@ export default function App() {
                     type="text"
                     value={nombrePersonalPago}
                     onChange={(e) => setNombrePersonalPago(e.target.value)}
-                    placeholder="Ej. Edu Flores"
+                    placeholder="Ej. Marco Silva"
                     style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                   />
                 </div>
@@ -485,43 +601,20 @@ export default function App() {
                     step="0.01"
                     value={montoSueldoPago}
                     onChange={(e) => setMontoSueldoPago(e.target.value)}
-                    placeholder="Ej. 300.00"
+                    placeholder="Ej. 350.00"
                     style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                   />
                 </div>
               </div>
-
-              {/* MUESTRA LAS ASISTENCIAS SEGÚN EL NOMBRE QUE ESCRIBES */}
-              {nombrePersonalPago.trim() !== '' && (
-                <div style={{ background: '#e0f2fe', padding: '10px', borderRadius: '6px', marginBottom: '15px', border: '1px solid #bae6fd', fontSize: '0.85rem' }}>
-                  📊 Asistencias registradas para <strong>{nombrePersonalPago}</strong>: <strong style={{ color: '#0369a1' }}>{diasAsistidosConsulta} día(s) en la semana</strong>.
-                </div>
-              )}
 
               <button type="submit" style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
                 REGISTRAR PAGO A PERSONAL
               </button>
             </form>
 
-            {/* HISTORIAL DE PAGOS REALIZADOS A PERSONAL */}
-            <div style={{ marginBottom: '25px', background: '#fff', border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px' }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>Historial de Pagos Realizados al Personal:</h4>
-              {historialPagosPersonal.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>No hay pagos a personal registrados.</p>
-              ) : (
-                <ul style={{ fontSize: '0.85rem', margin: 0, paddingLeft: '20px' }}>
-                  {historialPagosPersonal.map((p, idx) => (
-                    <li key={idx} style={{ marginBottom: '4px' }}>
-                      Fecha {p.fecha} — <strong>{p.trabajador}</strong>: <strong style={{ color: '#16a34a' }}>S/. {p.monto.toFixed(2)}</strong>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* TABLA RESUMEN GENERAL (SIN GASTO PERSONAL Y CON MONTO RECIBIDO) */}
-            <h3 style={{ fontSize: '0.95rem', marginBottom: '10px' }}>Resumen General de Obras</h3>
-            <div style={{ overflowX: 'auto' }}>
+            {/* TABLA RESUMEN GENERAL DE OBRAS ACTIVAS */}
+            <h3 style={{ fontSize: '0.95rem', marginBottom: '10px' }}>Resumen General de Obras Activas</h3>
+            <div style={{ overflowX: 'auto', marginBottom: '25px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ background: '#0f172a', color: '#fff', textAlign: 'left' }}>
@@ -530,13 +623,12 @@ export default function App() {
                     <th style={{ padding: '10px' }}>Monto Recibido</th>
                     <th style={{ padding: '10px' }}>Saldo Pendiente</th>
                     <th style={{ padding: '10px' }}>Avance Prog. vs Real</th>
-                    <th style={{ padding: '10px' }}>% Asistencia</th>
+                    <th style={{ padding: '10px' }}>Acción</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.values(obras).map((o) => {
+                  {obrasActivas.map((o) => {
                     const saldo = o.presupuestoTotal - o.montoRecibido;
-                    const pctAsistencia = calcularAsistenciaPromedioObra(o.asistencias);
                     return (
                       <tr key={o.id} style={{ borderBottom: '1px solid #cbd5e1' }}>
                         <td style={{ padding: '10px' }}>
@@ -555,8 +647,13 @@ export default function App() {
                         <td style={{ padding: '10px' }}>
                           Prog: <strong>{o.avanceProgramado}%</strong> | Real: <strong style={{ color: o.porcentajeAvance >= o.avanceProgramado ? '#16a34a' : '#d97706' }}>{o.porcentajeAvance}%</strong>
                         </td>
-                        <td style={{ padding: '10px', fontWeight: 'bold' }}>
-                          {pctAsistencia}%
+                        <td style={{ padding: '10px' }}>
+                          <button
+                            onClick={() => handleFinalizarObra(o.id)}
+                            style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            Finalizar Obra
+                          </button>
                         </td>
                       </tr>
                     );
@@ -564,6 +661,20 @@ export default function App() {
                 </tbody>
               </table>
             </div>
+
+            {/* SECCIÓN OBRAS ARCHIVADAS / FINALIZADAS */}
+            {obrasArchivadas.length > 0 && (
+              <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', background: '#f8fafc' }}>
+                <h3 style={{ fontSize: '0.95rem', margin: '0 0 10px 0', color: '#15803d' }}>📂 Historial de Obras Finalizadas y Archivadas</h3>
+                <ul style={{ fontSize: '0.85rem', margin: 0, paddingLeft: '20px' }}>
+                  {obrasArchivadas.map((o) => (
+                    <li key={o.id} style={{ marginBottom: '6px' }}>
+                      <strong>{o.nombre}</strong> ({o.id}) — Presupuesto: <strong>S/. {o.presupuestoTotal.toFixed(2)}</strong> | Total Recibido: <strong style={{ color: '#16a34a' }}>S/. {o.montoRecibido.toFixed(2)}</strong> — <span style={{ color: '#15803d', fontWeight: 'bold' }}>CONCLUIDA AL 100%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
           </div>
         )}
