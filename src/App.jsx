@@ -72,7 +72,6 @@ export default function App() {
     }
   });
 
-  // Estado global unificado para asistencias por trabajador (sin importar a qué obra vaya)
   const [asistenciasGlobales, setAsistenciasGlobales] = useState({});
 
   useEffect(() => {
@@ -96,7 +95,6 @@ export default function App() {
             };
           });
 
-          // Cargar asistencias globales
           const { data: dataAsis } = await supabase.from('asistencias').select('*');
           if (dataAsis) {
             const mapAsis = {};
@@ -142,53 +140,6 @@ export default function App() {
   const [nombrePersonalPago, setNombrePersonalPago] = useState('');
   const [montoSueldoPago, setMontoSueldoPago] = useState('');
 
-  // 1. REGISTRAR ASISTENCIA GLOBAL (ACUMULA DÍAS ENTRE TODAS LAS OBRAS)
-  const handleRegistrarAsistencia = (e) => {
-    e.preventDefault();
-    const nombreClean = nombreTrabajador.trim();
-    if (!nombreClean) {
-      alert('Escribe el nombre del trabajador.');
-      return;
-    }
-
-    const regPrevio = asistenciasGlobales[nombreClean] || { dias: [], ultimaObra: '' };
-    if (regPrevio.dias.includes(diaSemana)) {
-      alert(`El trabajador ${nombreClean} ya tiene asistencia registrada para el ${diaSemana}.`);
-      return;
-    }
-
-    const nuevosDias = [...regPrevio.dias, diaSemana];
-    const totalDiasCount = nuevosDias.length;
-    const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
-
-    const nuevoRegistroGlobal = {
-      ...asistenciasGlobales,
-      [nombreClean]: {
-        dias: nuevosDias,
-        ultimaObra: obraSeleccionada
-      }
-    };
-
-    setAsistenciasGlobales(nuevoRegistroGlobal);
-
-    setTicketAsistencia({
-      trabajador: nombreClean,
-      dia: diaSemana,
-      totalDias: totalDiasCount,
-      porcentaje: porcentajeGlobal,
-      obra: obras[obraSeleccionada] ? obras[obraSeleccionada].nombre : obraSeleccionada
-    });
-
-    // Guardar en Supabase unificando al trabajador
-    supabase.from('asistencias').upsert({
-      trabajador: nombreClean,
-      obra_id: obraSeleccionada,
-      dias: nuevosDias
-    }, { onConflict: 'trabajador' }).then();
-
-    setNombreTrabajador('');
-  };
-
   const handleCargarFoto = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -220,46 +171,80 @@ export default function App() {
     }
   };
 
-  const handleGuardarAvance = (e) => {
+  // UN SOLO FORMULARIO: Asistencia + Avance % + Foto
+  const handleRegistrarJornadaUnificada = (e) => {
     e.preventDefault();
-    const incremento = parseInt(avanceInput);
-    if (isNaN(incremento) || incremento <= 0) {
-      alert('Ingresa un % de avance válido.');
+    const nombreClean = nombreTrabajador.trim();
+    if (!nombreClean) {
+      alert('Escribe el nombre del trabajador.');
       return;
     }
 
-    setObras((prev) => {
-      const obraPrev = prev[obraSeleccionada];
-      const nuevosAvancesDia = {
-        ...obraPrev.avancesPorDia,
-        [diaSemana]: (obraPrev.avancesPorDia[diaSemana] || 0) + incremento
-      };
+    // 1. Asistencia
+    const regPrevio = asistenciasGlobales[nombreClean] || { dias: [], ultimaObra: '' };
+    const yaTieneAsistencia = regPrevio.dias.includes(diaSemana);
+    const nuevosDias = yaTieneAsistencia ? regPrevio.dias : [...regPrevio.dias, diaSemana];
+    const totalDiasCount = nuevosDias.length;
+    const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
 
-      const nuevoTotalAvance = Math.min(100, Object.values(nuevosAvancesDia).reduce((a, b) => a + b, 0));
-      const fotoGuardar = fotoPreview || obraPrev.foto;
+    const nuevoRegistroGlobal = {
+      ...asistenciasGlobales,
+      [nombreClean]: {
+        dias: nuevosDias,
+        ultimaObra: obraSeleccionada
+      }
+    };
+    setAsistenciasGlobales(nuevoRegistroGlobal);
 
-      supabase.from('obras')
-        .update({ 
-          porcentaje_avance: nuevoTotalAvance,
-          avances_por_dia: nuevosAvancesDia,
-          foto: fotoGuardar
-        })
-        .eq('id', obraSeleccionada)
-        .then();
+    supabase.from('asistencias').upsert({
+      trabajador: nombreClean,
+      obra_id: obraSeleccionada,
+      dias: nuevosDias
+    }, { onConflict: 'trabajador' }).then();
 
-      alert(`✓ Avance registrado para el ${diaSemana}: +${incremento}%. Total acumulado de la obra: ${nuevoTotalAvance}%.`);
+    // 2. Avance % opcional
+    const incremento = parseInt(avanceInput) || 0;
+    if (incremento > 0 || fotoPreview) {
+      setObras((prev) => {
+        const obraPrev = prev[obraSeleccionada];
+        const nuevosAvancesDia = {
+          ...obraPrev.avancesPorDia,
+          [diaSemana]: (obraPrev.avancesPorDia[diaSemana] || 0) + incremento
+        };
+        const nuevoTotalAvance = Math.min(100, Object.values(nuevosAvancesDia).reduce((a, b) => a + b, 0));
+        const fotoGuardar = fotoPreview || obraPrev.foto;
 
-      return {
-        ...prev,
-        [obraSeleccionada]: {
-          ...obraPrev,
-          porcentajeAvance: nuevoTotalAvance,
-          avancesPorDia: nuevosAvancesDia,
-          foto: fotoGuardar
-        }
-      };
+        supabase.from('obras')
+          .update({ 
+            porcentaje_avance: nuevoTotalAvance,
+            avances_por_dia: nuevosAvancesDia,
+            foto: fotoGuardar
+          })
+          .eq('id', obraSeleccionada)
+          .then();
+
+        return {
+          ...prev,
+          [obraSeleccionada]: {
+            ...obraPrev,
+            porcentajeAvance: nuevoTotalAvance,
+            avancesPorDia: nuevosAvancesDia,
+            foto: fotoGuardar
+          }
+        };
+      });
+    }
+
+    setTicketAsistencia({
+      trabajador: nombreClean,
+      dia: diaSemana,
+      totalDias: totalDiasCount,
+      porcentaje: porcentajeGlobal,
+      obra: obras[obraSeleccionada] ? obras[obraSeleccionada].nombre : obraSeleccionada,
+      incremento: incremento
     });
 
+    setNombreTrabajador('');
     setAvanceInput('');
     setFotoPreview(null);
   };
@@ -406,14 +391,12 @@ export default function App() {
       {/* CONTENIDO PRINCIPAL */}
       <div style={{ background: '#fff', padding: '25px', border: '1px solid #cbd5e1', borderRadius: '0 0 8px 8px' }}>
 
-        {/* 1. MÓDULO TRABAJADOR */}
+        {/* 1. MÓDULO TRABAJADOR (UN SOLO FORMULARIO) */}
         {tab === 'trabajador' && (
           <div>
-            <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Registro de Asistencia y Avances</h2>
+            <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Registro de Jornada de Trabajo</h2>
 
-            <form onSubmit={handleRegistrarAsistencia} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>1. Registrar Asistencia Semanal</h3>
-              
+            <form onSubmit={handleRegistrarJornadaUnificada} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Nombre Trabajador:</label>
@@ -426,7 +409,7 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Día Asistido:</label>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Día Trabajado:</label>
                   <select
                     value={diaSemana}
                     onChange={(e) => setDiaSemana(e.target.value)}
@@ -439,8 +422,8 @@ export default function App() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Seleccionar Obra Actual:</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Obra Asignada Hoy:</label>
                 <select
                   value={obraSeleccionada}
                   onChange={(e) => setObraSeleccionada(e.target.value)}
@@ -452,38 +435,9 @@ export default function App() {
                 </select>
               </div>
 
-              <button type="submit" style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
-                REGISTRAR ASISTENCIA DEL DÍA
-              </button>
-
-              {ticketAsistencia && (
-                <div style={{ marginTop: '15px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #16a34a', padding: '12px', borderRadius: '6px' }}>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                    <strong>✓ ASISTENCIA REGISTRADA ACUMULADA:</strong> <strong>{ticketAsistencia.trabajador}</strong> en <strong>{ticketAsistencia.obra}</strong>.
-                    <br />
-                    Total asistencias semanales acumuladas: <strong>{ticketAsistencia.totalDias} de 6 días</strong> (<strong style={{ color: '#16a34a' }}>{ticketAsistencia.porcentaje}%</strong>).
-                  </p>
-                </div>
-              )}
-            </form>
-
-            <form onSubmit={handleGuardarAvance} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px' }}>
-              <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>2. Reportar Avance de Obra por Día (% que suma)</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                 <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Día de Trabajo:</label>
-                  <select
-                    value={diaSemana}
-                    onChange={(e) => setDiaSemana(e.target.value)}
-                    style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                  >
-                    {diasSemanaList.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>% Avance que suma este día (Ej. 10%):</label>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>% Avance Logrado Hoy (Opcional):</label>
                   <input
                     type="number"
                     value={avanceInput}
@@ -492,11 +446,10 @@ export default function App() {
                     style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                   />
                 </div>
-              </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Foto Evidencia del Día:</label>
-                <input type="file" accept="image/*" onChange={handleCargarFoto} style={{ marginTop: '4px', display: 'block' }} />
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Foto Evidencia del Día:</label>
+                  <input type="file" accept="image/*" onChange={handleCargarFoto} style={{ marginTop: '4px', display: 'block' }} />
+                </div>
               </div>
 
               {fotoPreview && (
@@ -505,9 +458,20 @@ export default function App() {
                 </div>
               )}
 
-              <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
-                SUMAR AVANCE DEL DÍA
+              <button type="submit" style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
+                REGISTRAR DÍA DE TRABAJO Y AVANCE
               </button>
+
+              {ticketAsistencia && (
+                <div style={{ marginTop: '15px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #16a34a', padding: '12px', borderRadius: '6px' }}>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>
+                    <strong>✓ REGISTRO EXITOSO:</strong> <strong>{ticketAsistencia.trabajador}</strong> en el día <strong>{ticketAsistencia.dia}</strong> en <strong>{ticketAsistencia.obra}</strong>.
+                    <br />
+                    Asistencias acumuladas: <strong>{ticketAsistencia.totalDias} de 6 días</strong> (<strong style={{ color: '#16a34a' }}>{ticketAsistencia.porcentaje}%</strong>).
+                    {ticketAsistencia.incremento > 0 && <span> Avance sumado a la obra: <strong>+{ticketAsistencia.incremento}%</strong>.</span>}
+                  </p>
+                </div>
+              )}
             </form>
           </div>
         )}
@@ -545,7 +509,6 @@ export default function App() {
                 </div>
                 <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '4px 0 15px 0' }}>{obraConsultada.ubicacion}</p>
 
-                {/* TARJETAS PRESUPUESTO */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
                   <div style={{ background: '#e0f2fe', padding: '12px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
                     <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 'bold', display: 'block' }}>PRESUPUESTO TOTAL:</span>
@@ -563,7 +526,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* REGISTRAR ABONO DEL DUEÑO */}
                 {!obraConsultada.finalizada && (
                   <div style={{ border: '1px solid #cbd5e1', background: '#fff', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
                     <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#0f172a' }}>Abonar Cuota / Pago Adelantado</h4>
@@ -586,7 +548,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* AVANCE FÍSICO */}
                 <div style={{ marginBottom: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 'bold' }}>
                     <span>Avance Acumulado de Obra:</span>
@@ -597,15 +558,13 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* FOTO EVIDENCIA */}
                 {obraConsultada.foto && (
                   <div style={{ marginBottom: '20px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#0f172a' }}>📷 Última Foto de Evidencia de Avance Guardada:</h4>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#0f172a' }}>📷 Última Foto de Evidencia Guardada:</h4>
                     <img src={obraConsultada.foto} alt="Evidencia en vivo" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   </div>
                 )}
 
-                {/* HISTORIAL DE ABONOS */}
                 <div>
                   <p style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '6px' }}>Historial de Abonos Recibidos:</p>
                   {obraConsultada.pagosDueno.length === 0 ? (
@@ -630,10 +589,10 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Panel de Control Gerencial</h2>
 
-            {/* 1. PRIMERO: ASISTENCIA SEMANAL GLOBAL POR TRABAJADOR */}
+            {/* 1. ASISTENCIA SEMANAL GLOBAL */}
             <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador (Acumulada en Todas las Obras)</h3>
+                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador</h3>
                 <button
                   onClick={handleReiniciarAsistenciasSemana}
                   style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}
@@ -670,7 +629,7 @@ export default function App() {
               )}
             </div>
 
-            {/* 2. SEGUNDO: MÓDULO PARA PAGAR A TRABAJADOR */}
+            {/* 2. PAGAR SUELDO A PERSONAL */}
             <form onSubmit={handlePagarPersonal} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '25px', background: '#f8fafc' }}>
               <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#0f172a' }}>Pagar Sueldo a Personal</h3>
               
@@ -703,7 +662,7 @@ export default function App() {
               </button>
             </form>
 
-            {/* 3. TERCERO: RESUMEN GENERAL DE OBRAS ACTIVAS */}
+            {/* 3. RESUMEN GENERAL DE OBRAS ACTIVAS */}
             <h3 style={{ fontSize: '0.95rem', marginBottom: '10px' }}>Resumen General de Obras Activas</h3>
             <div style={{ overflowX: 'auto', marginBottom: '25px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -749,7 +708,7 @@ export default function App() {
               </table>
             </div>
 
-            {/* 4. CUARTO: BITÁCORA Y AVANCE % HASTA EL 100% */}
+            {/* 4. BITÁCORA DE AVANCES POR DÍA HASTA 100% */}
             <div style={{ border: '2px solid #2563eb', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#f0f9ff' }}>
               <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#1e40af' }}>📊 Bitácora de Avances % Acumulados por Día (Lunes a Sábado hasta 100%)</h3>
               <div style={{ overflowX: 'auto' }}>
@@ -785,7 +744,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 5. QUINTO: HISTORIAL ARCHIVADAS */}
+            {/* 5. HISTORIAL ARCHIVADAS */}
             {obrasArchivadas.length > 0 && (
               <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', background: '#f8fafc' }}>
                 <h3 style={{ fontSize: '0.95rem', margin: '0 0 10px 0', color: '#15803d' }}>📂 Historial de Obras Finalizadas y Archivadas</h3>
