@@ -189,7 +189,6 @@ export default function App() {
     setNombreTrabajador('');
   };
 
-  // Compresión automática de fotos para guardado liviano y permanente
   const handleCargarFoto = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -611,7 +610,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* FOTO EVIDENCIA RECIENTE QUE SE GUARDA PERMANENTEMENTE */}
+                {/* FOTO EVIDENCIA */}
                 {obraConsultada.foto && (
                   <div style={{ marginBottom: '20px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
                     <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#0f172a' }}>📷 Última Foto de Evidencia de Avance Guardada:</h4>
@@ -644,7 +643,80 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Panel de Control Gerencial</h2>
 
-            {/* TABLA RESUMEN FINANCIERO (Limpia sin Avance Prog vs Real) */}
+            {/* 1. LO PRIMERO: ASISTENCIA SEMANAL POR TRABAJADOR */}
+            <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#fff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador</h3>
+                <button
+                  onClick={handleReiniciarAsistenciasSemana}
+                  style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Reiniciar Asistencias de la Semana (Domingos)
+                </button>
+              </div>
+
+              {listaConsolidadaTrabajadores.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>No hay asistencias registradas esta semana.</p>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#1e293b', color: '#fff', textAlign: 'left' }}>
+                      <th style={{ padding: '8px' }}>Trabajador</th>
+                      <th style={{ padding: '8px' }}>Obra Asignada</th>
+                      <th style={{ padding: '8px' }}>Días Asistidos</th>
+                      <th style={{ padding: '8px' }}>% Asistencia Semanal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listaConsolidadaTrabajadores.map((t, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{t.nombre}</td>
+                        <td style={{ padding: '8px', color: '#64748b' }}>{t.obra}</td>
+                        <td style={{ padding: '8px' }}>{t.diasAsistidos} / 6 días</td>
+                        <td style={{ padding: '8px', fontWeight: 'bold', color: t.porcentaje >= 80 ? '#16a34a' : '#d97706' }}>
+                          {t.porcentaje}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* 2. LO SEGUNDO: MÓDULO PARA PAGAR A TRABAJADOR */}
+            <form onSubmit={handlePagarPersonal} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '25px', background: '#f8fafc' }}>
+              <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#0f172a' }}>Pagar Sueldo a Personal</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Nombre Trabajador:</label>
+                  <input
+                    type="text"
+                    value={nombrePersonalPago}
+                    onChange={(e) => setNombrePersonalPago(e.target.value)}
+                    placeholder="Ej. Marco Silva"
+                    style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Monto a Pagar (S/.):</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={montoSueldoPago}
+                    onChange={(e) => setMontoSueldoPago(e.target.value)}
+                    placeholder="Ej. 350.00"
+                    style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
+                REGISTRAR PAGO A PERSONAL
+              </button>
+            </form>
+
+            {/* 3. RESUMEN GENERAL DE OBRAS ACTIVAS */}
             <h3 style={{ fontSize: '0.95rem', marginBottom: '10px' }}>Resumen General de Obras Activas</h3>
             <div style={{ overflowX: 'auto', marginBottom: '25px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -690,80 +762,7 @@ export default function App() {
               </table>
             </div>
 
-            {/* TABLA DE ASISTENCIA SEMANAL POR TRABAJADOR */}
-            <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#fff' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador</h3>
-                <button
-                  onClick={handleReiniciarAsistenciasSemana}
-                  style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}
-                >
-                  Reiniciar Asistencias de la Semana (Domingos)
-                </button>
-              </div>
-
-              {listaConsolidadaTrabajadores.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>No hay asistencias registradas esta semana.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                  <thead>
-                    <tr style={{ background: '#1e293b', color: '#fff', textAlign: 'left' }}>
-                      <th style={{ padding: '8px' }}>Trabajador</th>
-                      <th style={{ padding: '8px' }}>Obra Asignada</th>
-                      <th style={{ padding: '8px' }}>Días Asistidos</th>
-                      <th style={{ padding: '8px' }}>% Asistencia Semanal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {listaConsolidadaTrabajadores.map((t, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{t.nombre}</td>
-                        <td style={{ padding: '8px', color: '#64748b' }}>{t.obra}</td>
-                        <td style={{ padding: '8px' }}>{t.diasAsistidos} / 6 días</td>
-                        <td style={{ padding: '8px', fontWeight: 'bold', color: t.porcentaje >= 80 ? '#16a34a' : '#d97706' }}>
-                          {t.porcentaje}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* MÓDULO PARA PAGAR A TRABAJADOR */}
-            <form onSubmit={handlePagarPersonal} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '25px', background: '#f8fafc' }}>
-              <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#0f172a' }}>Pagar Sueldo a Personal</h3>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Nombre Trabajador:</label>
-                  <input
-                    type="text"
-                    value={nombrePersonalPago}
-                    onChange={(e) => setNombrePersonalPago(e.target.value)}
-                    placeholder="Ej. Marco Silva"
-                    style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Monto a Pagar (S/.):</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={montoSueldoPago}
-                    onChange={(e) => setMontoSueldoPago(e.target.value)}
-                    placeholder="Ej. 350.00"
-                    style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                  />
-                </div>
-              </div>
-
-              <button type="submit" style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
-                REGISTRAR PAGO A PERSONAL
-              </button>
-            </form>
-
-            {/* UN SOLO CUADRO AL FINAL: BITÁCORA Y AVANCE % HASTA EL 100% */}
+            {/* 4. BITÁCORA Y AVANCE % HASTA EL 100% */}
             <div style={{ border: '2px solid #2563eb', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#f0f9ff' }}>
               <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#1e40af' }}>📊 Bitácora de Avances % Acumulados por Día (Lunes a Sábado hasta 100%)</h3>
               <div style={{ overflowX: 'auto' }}>
@@ -799,7 +798,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* SECCIÓN OBRAS ARCHIVADAS / FINALIZADAS */}
+            {/* 5. HISTORIAL ARCHIVADAS */}
             {obrasArchivadas.length > 0 && (
               <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', background: '#f8fafc' }}>
                 <h3 style={{ fontSize: '0.95rem', margin: '0 0 10px 0', color: '#15803d' }}>📂 Historial de Obras Finalizadas y Archivadas</h3>
