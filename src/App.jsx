@@ -20,7 +20,6 @@ export default function App() {
       avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
       foto: null,
       finalizada: false,
-      asistencias: {},
       pagosDueno: []
     },
     'LARAPA-02': {
@@ -33,7 +32,6 @@ export default function App() {
       avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
       foto: null,
       finalizada: false,
-      asistencias: {},
       pagosDueno: []
     },
     'ANDINA-01': {
@@ -46,7 +44,6 @@ export default function App() {
       avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
       foto: null,
       finalizada: false,
-      asistencias: {},
       pagosDueno: []
     },
     'ANDINA-02': {
@@ -59,7 +56,6 @@ export default function App() {
       avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
       foto: null,
       finalizada: false,
-      asistencias: {},
       pagosDueno: []
     },
     'SAYLLA-01': {
@@ -72,10 +68,12 @@ export default function App() {
       avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
       foto: null,
       finalizada: false,
-      asistencias: {},
       pagosDueno: []
     }
   });
+
+  // Estado global unificado para asistencias por trabajador (sin importar a qué obra vaya)
+  const [asistenciasGlobales, setAsistenciasGlobales] = useState({});
 
   useEffect(() => {
     const cargarDatosSupabase = async () => {
@@ -94,18 +92,21 @@ export default function App() {
               avancesPorDia: o.avances_por_dia || { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
               foto: o.foto || null,
               finalizada: o.finalizada || false,
-              asistencias: {},
               pagosDueno: []
             };
           });
 
+          // Cargar asistencias globales
           const { data: dataAsis } = await supabase.from('asistencias').select('*');
           if (dataAsis) {
+            const mapAsis = {};
             dataAsis.forEach((a) => {
-              if (obrasMap[a.obra_id]) {
-                obrasMap[a.obra_id].asistencias[a.trabajador] = a.dias || [];
-              }
+              mapAsis[a.trabajador] = {
+                dias: a.dias || [],
+                ultimaObra: a.obra_id || ''
+              };
             });
+            setAsistenciasGlobales(mapAsis);
           }
 
           const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
@@ -141,6 +142,7 @@ export default function App() {
   const [nombrePersonalPago, setNombrePersonalPago] = useState('');
   const [montoSueldoPago, setMontoSueldoPago] = useState('');
 
+  // 1. REGISTRAR ASISTENCIA GLOBAL (ACUMULA DÍAS ENTRE TODAS LAS OBRAS)
   const handleRegistrarAsistencia = (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -149,42 +151,40 @@ export default function App() {
       return;
     }
 
-    setObras((prev) => {
-      const obraPrev = prev[obraSeleccionada];
-      const asistenciasObra = { ...obraPrev.asistencias };
-      const diasRegistrados = asistenciasObra[nombreClean] || [];
+    const regPrevio = asistenciasGlobales[nombreClean] || { dias: [], ultimaObra: '' };
+    if (regPrevio.dias.includes(diaSemana)) {
+      alert(`El trabajador ${nombreClean} ya tiene asistencia registrada para el ${diaSemana}.`);
+      return;
+    }
 
-      if (diasRegistrados.includes(diaSemana)) {
-        alert(`El trabajador ${nombreClean} ya tiene asistencia marcada para el ${diaSemana}.`);
-        return prev;
+    const nuevosDias = [...regPrevio.dias, diaSemana];
+    const totalDiasCount = nuevosDias.length;
+    const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
+
+    const nuevoRegistroGlobal = {
+      ...asistenciasGlobales,
+      [nombreClean]: {
+        dias: nuevosDias,
+        ultimaObra: obraSeleccionada
       }
+    };
 
-      const nuevosDias = [...diasRegistrados, diaSemana];
-      asistenciasObra[nombreClean] = nuevosDias;
-      const porcentajeAcumulado = Math.round((nuevosDias.length / 6) * 100);
+    setAsistenciasGlobales(nuevoRegistroGlobal);
 
-      setTicketAsistencia({
-        trabajador: nombreClean,
-        dia: diaSemana,
-        totalDias: nuevosDias.length,
-        porcentaje: porcentajeAcumulado,
-        obra: obraPrev.nombre
-      });
-
-      supabase.from('asistencias').upsert({
-        obra_id: obraSeleccionada,
-        trabajador: nombreClean,
-        dias: nuevosDias
-      }).then();
-
-      return {
-        ...prev,
-        [obraSeleccionada]: {
-          ...obraPrev,
-          asistencias: asistenciasObra
-        }
-      };
+    setTicketAsistencia({
+      trabajador: nombreClean,
+      dia: diaSemana,
+      totalDias: totalDiasCount,
+      porcentaje: porcentajeGlobal,
+      obra: obras[obraSeleccionada] ? obras[obraSeleccionada].nombre : obraSeleccionada
     });
+
+    // Guardar en Supabase unificando al trabajador
+    supabase.from('asistencias').upsert({
+      trabajador: nombreClean,
+      obra_id: obraSeleccionada,
+      dias: nuevosDias
+    }, { onConflict: 'trabajador' }).then();
 
     setNombreTrabajador('');
   };
@@ -247,7 +247,7 @@ export default function App() {
         .eq('id', obraSeleccionada)
         .then();
 
-      alert(`✓ Avance registrado para el ${diaSemana}: +${incremento}%. Total acumulado: ${nuevoTotalAvance}%.`);
+      alert(`✓ Avance registrado para el ${diaSemana}: +${incremento}%. Total acumulado de la obra: ${nuevoTotalAvance}%.`);
 
       return {
         ...prev,
@@ -332,14 +332,9 @@ export default function App() {
   };
 
   const handleReiniciarAsistenciasSemana = () => {
-    if (window.confirm('¿Deseas reiniciar la lista de asistencias semanales a 0 para iniciar una nueva semana?')) {
-      setObras((prev) => {
-        const copia = { ...prev };
-        Object.keys(copia).forEach((key) => {
-          copia[key].asistencias = {};
-        });
-        return copia;
-      });
+    if (window.confirm('¿Deseas reiniciar las asistencias semanales a 0 para iniciar una nueva semana?')) {
+      setAsistenciasGlobales({});
+      supabase.from('asistencias').delete().neq('trabajador', '').then();
       alert('✓ Asistencias semanales reiniciadas correctamente.');
     }
   };
@@ -355,27 +350,19 @@ export default function App() {
     }
   };
 
-  const obtenerConsolidadoTrabajadores = () => {
-    const mapa = {};
-    Object.values(obras).forEach((obra) => {
-      Object.entries(obra.asistencias).forEach(([trabajador, dias]) => {
-        const tLower = trabajador.trim();
-        if (!mapa[tLower]) {
-          mapa[tLower] = { nombre: tLower, dias: new Set(), obra: obra.nombre };
-        }
-        dias.forEach((d) => mapa[tLower].dias.add(d));
-      });
-    });
-    return Object.values(mapa).map((item) => ({
-      nombre: item.nombre,
-      diasAsistidos: item.dias.size,
-      porcentaje: Math.round((item.dias.size / 6) * 100),
-      obra: item.obra
-    }));
-  };
+  const listaTrabajadoresGlobal = Object.entries(asistenciasGlobales).map(([nombre, item]) => {
+    const countDias = item.dias.length;
+    const porcentaje = Math.round((countDias / 6) * 100);
+    const obraObj = obras[item.ultimaObra];
+    return {
+      nombre,
+      diasAsistidos: countDias,
+      porcentaje,
+      obraNombre: obraObj ? obraObj.nombre : item.ultimaObra
+    };
+  });
 
   const obraConsultada = obraConsultadaId ? obras[obraConsultadaId] : null;
-  const listaConsolidadaTrabajadores = obtenerConsolidadoTrabajadores();
   const obrasActivas = Object.values(obras).filter((o) => !o.finalizada);
   const obrasArchivadas = Object.values(obras).filter((o) => o.finalizada);
   const diasSemanaList = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -453,7 +440,7 @@ export default function App() {
               </div>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Seleccionar Obra:</label>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Seleccionar Obra Actual:</label>
                 <select
                   value={obraSeleccionada}
                   onChange={(e) => setObraSeleccionada(e.target.value)}
@@ -472,9 +459,9 @@ export default function App() {
               {ticketAsistencia && (
                 <div style={{ marginTop: '15px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #16a34a', padding: '12px', borderRadius: '6px' }}>
                   <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                    <strong>✓ ASISTENCIA REGISTRADA:</strong> <strong>{ticketAsistencia.trabajador}</strong> asistió el <strong>{ticketAsistencia.dia}</strong>.
+                    <strong>✓ ASISTENCIA REGISTRADA ACUMULADA:</strong> <strong>{ticketAsistencia.trabajador}</strong> en <strong>{ticketAsistencia.obra}</strong>.
                     <br />
-                    Asistencias acumuladas esta semana: <strong>{ticketAsistencia.totalDias} de 6 días</strong> (<strong style={{ color: '#16a34a' }}>{ticketAsistencia.porcentaje}%</strong>).
+                    Total asistencias semanales acumuladas: <strong>{ticketAsistencia.totalDias} de 6 días</strong> (<strong style={{ color: '#16a34a' }}>{ticketAsistencia.porcentaje}%</strong>).
                   </p>
                 </div>
               )}
@@ -643,10 +630,10 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Panel de Control Gerencial</h2>
 
-            {/* 1. LO PRIMERO: ASISTENCIA SEMANAL POR TRABAJADOR */}
+            {/* 1. PRIMERO: ASISTENCIA SEMANAL GLOBAL POR TRABAJADOR */}
             <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador</h3>
+                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador (Acumulada en Todas las Obras)</h3>
                 <button
                   onClick={handleReiniciarAsistenciasSemana}
                   style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}
@@ -655,23 +642,23 @@ export default function App() {
                 </button>
               </div>
 
-              {listaConsolidadaTrabajadores.length === 0 ? (
+              {listaTrabajadoresGlobal.length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>No hay asistencias registradas esta semana.</p>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ background: '#1e293b', color: '#fff', textAlign: 'left' }}>
                       <th style={{ padding: '8px' }}>Trabajador</th>
-                      <th style={{ padding: '8px' }}>Obra Asignada</th>
-                      <th style={{ padding: '8px' }}>Días Asistidos</th>
-                      <th style={{ padding: '8px' }}>% Asistencia Semanal</th>
+                      <th style={{ padding: '8px' }}>Última Obra</th>
+                      <th style={{ padding: '8px' }}>Días Asistidos Semanales</th>
+                      <th style={{ padding: '8px' }}>% Asistencia Acumulada</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {listaConsolidadaTrabajadores.map((t, idx) => (
+                    {listaTrabajadoresGlobal.map((t, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px', fontWeight: 'bold' }}>{t.nombre}</td>
-                        <td style={{ padding: '8px', color: '#64748b' }}>{t.obra}</td>
+                        <td style={{ padding: '8px', color: '#64748b' }}>{t.obraNombre}</td>
                         <td style={{ padding: '8px' }}>{t.diasAsistidos} / 6 días</td>
                         <td style={{ padding: '8px', fontWeight: 'bold', color: t.porcentaje >= 80 ? '#16a34a' : '#d97706' }}>
                           {t.porcentaje}%
@@ -683,7 +670,7 @@ export default function App() {
               )}
             </div>
 
-            {/* 2. LO SEGUNDO: MÓDULO PARA PAGAR A TRABAJADOR */}
+            {/* 2. SEGUNDO: MÓDULO PARA PAGAR A TRABAJADOR */}
             <form onSubmit={handlePagarPersonal} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '25px', background: '#f8fafc' }}>
               <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#0f172a' }}>Pagar Sueldo a Personal</h3>
               
@@ -716,7 +703,7 @@ export default function App() {
               </button>
             </form>
 
-            {/* 3. RESUMEN GENERAL DE OBRAS ACTIVAS */}
+            {/* 3. TERCERO: RESUMEN GENERAL DE OBRAS ACTIVAS */}
             <h3 style={{ fontSize: '0.95rem', marginBottom: '10px' }}>Resumen General de Obras Activas</h3>
             <div style={{ overflowX: 'auto', marginBottom: '25px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -762,7 +749,7 @@ export default function App() {
               </table>
             </div>
 
-            {/* 4. BITÁCORA Y AVANCE % HASTA EL 100% */}
+            {/* 4. CUARTO: BITÁCORA Y AVANCE % HASTA EL 100% */}
             <div style={{ border: '2px solid #2563eb', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#f0f9ff' }}>
               <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#1e40af' }}>📊 Bitácora de Avances % Acumulados por Día (Lunes a Sábado hasta 100%)</h3>
               <div style={{ overflowX: 'auto' }}>
@@ -798,7 +785,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 5. HISTORIAL ARCHIVADAS */}
+            {/* 5. QUINTO: HISTORIAL ARCHIVADAS */}
             {obrasArchivadas.length > 0 && (
               <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', background: '#f8fafc' }}>
                 <h3 style={{ fontSize: '0.95rem', margin: '0 0 10px 0', color: '#15803d' }}>📂 Historial de Obras Finalizadas y Archivadas</h3>
