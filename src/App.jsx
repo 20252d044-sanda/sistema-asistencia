@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Conexión con tu base de datos Supabase
 const SUPABASE_URL = 'https://uhanzkksmktlucmxevls.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_44AbuuHbYKcPWNlT9VlXUw_u4-bb'; 
 
@@ -10,7 +9,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 export default function App() {
   const [tab, setTab] = useState('trabajador');
 
-  // Base de Datos de Obras (Inician en 0%)
   const [obras, setObras] = useState({
     'LARAPA-01': {
       id: 'LARAPA-01',
@@ -22,10 +20,7 @@ export default function App() {
       avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
       foto: null,
       finalizada: false,
-      asistencias: {
-        'Edu Flores': ['Lunes', 'Miércoles', 'Viernes'],
-        'Marco Silva': ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-      },
+      asistencias: {},
       pagosDueno: []
     },
     'LARAPA-02': {
@@ -51,9 +46,7 @@ export default function App() {
       avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
       foto: null,
       finalizada: false,
-      asistencias: {
-        'Julio Torres': ['Lunes', 'Martes', 'Jueves']
-      },
+      asistencias: {},
       pagosDueno: []
     },
     'ANDINA-02': {
@@ -84,7 +77,6 @@ export default function App() {
     }
   });
 
-  // Cargar datos automáticamente desde Supabase
   useEffect(() => {
     const cargarDatosSupabase = async () => {
       try {
@@ -100,14 +92,13 @@ export default function App() {
               montoRecibido: Number(o.monto_recibido) || 0,
               porcentajeAvance: Number(o.porcentaje_avance) || 0,
               avancesPorDia: o.avances_por_dia || { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
+              foto: o.foto || null,
               finalizada: o.finalizada || false,
-              foto: null,
               asistencias: {},
               pagosDueno: []
             };
           });
 
-          // Cargar Asistencias
           const { data: dataAsis } = await supabase.from('asistencias').select('*');
           if (dataAsis) {
             dataAsis.forEach((a) => {
@@ -117,7 +108,6 @@ export default function App() {
             });
           }
 
-          // Cargar Pagos
           const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
           if (dataPagos) {
             dataPagos.forEach((p) => {
@@ -136,10 +126,7 @@ export default function App() {
     cargarDatosSupabase();
   }, []);
 
-  // Historial de pagos directos al personal
   const [historialPagosPersonal, setHistorialPagosPersonal] = useState([]);
-
-  // Formulario Trabajador
   const [nombreTrabajador, setNombreTrabajador] = useState('');
   const [diaSemana, setDiaSemana] = useState('Lunes');
   const [obraSeleccionada, setObraSeleccionada] = useState('LARAPA-01');
@@ -147,16 +134,13 @@ export default function App() {
   const [fotoPreview, setFotoPreview] = useState(null);
   const [ticketAsistencia, setTicketAsistencia] = useState(null);
 
-  // Portal Dueño
   const [codigoBuscar, setCodigoBuscar] = useState('');
   const [obraConsultadaId, setObraConsultadaId] = useState(null);
   const [montoPago, setMontoPago] = useState('');
 
-  // Panel Gerencial
   const [nombrePersonalPago, setNombrePersonalPago] = useState('');
   const [montoSueldoPago, setMontoSueldoPago] = useState('');
 
-  // 1. REGISTRAR ASISTENCIA TRABAJADOR
   const handleRegistrarAsistencia = (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -187,7 +171,6 @@ export default function App() {
         obra: obraPrev.nombre
       });
 
-      // Guardar en Supabase
       supabase.from('asistencias').upsert({
         obra_id: obraSeleccionada,
         trabajador: nombreClean,
@@ -206,12 +189,34 @@ export default function App() {
     setNombreTrabajador('');
   };
 
-  // 2. REGISTRAR AVANCE POR DÍA (SUMA DÍA A DÍA LUNES-SÁBADO)
+  // Compresión automática de fotos para guardado liviano y permanente
   const handleCargarFoto = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const img = document.createElement('img');
       const reader = new FileReader();
-      reader.onload = (evt) => setFotoPreview(evt.target.result);
+      reader.onload = (evt) => {
+        img.src = evt.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 600;
+          let width = img.width;
+          let height = img.height;
+          if (width > height && width > maxDim) {
+            height *= maxDim / width;
+            width = maxDim;
+          } else if (height > maxDim) {
+            width *= maxDim / height;
+            height = maxDim;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.6);
+          setFotoPreview(compressed);
+        };
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -231,19 +236,19 @@ export default function App() {
         [diaSemana]: (obraPrev.avancesPorDia[diaSemana] || 0) + incremento
       };
 
-      // Sumar el porcentaje de todos los días (Lunes a Sábado)
       const nuevoTotalAvance = Math.min(100, Object.values(nuevosAvancesDia).reduce((a, b) => a + b, 0));
+      const fotoGuardar = fotoPreview || obraPrev.foto;
 
-      // Guardar en Supabase
       supabase.from('obras')
         .update({ 
           porcentaje_avance: nuevoTotalAvance,
-          avances_por_dia: nuevosAvancesDia 
+          avances_por_dia: nuevosAvancesDia,
+          foto: fotoGuardar
         })
         .eq('id', obraSeleccionada)
         .then();
 
-      alert(`✓ Avance registrado para el ${diaSemana}: +${incremento}%. Total acumulado de la obra: ${nuevoTotalAvance}%.`);
+      alert(`✓ Avance registrado para el ${diaSemana}: +${incremento}%. Total acumulado: ${nuevoTotalAvance}%.`);
 
       return {
         ...prev,
@@ -251,7 +256,7 @@ export default function App() {
           ...obraPrev,
           porcentajeAvance: nuevoTotalAvance,
           avancesPorDia: nuevosAvancesDia,
-          foto: fotoPreview || obraPrev.foto
+          foto: fotoGuardar
         }
       };
     });
@@ -260,7 +265,6 @@ export default function App() {
     setFotoPreview(null);
   };
 
-  // 3. CONSULTAR PORTAL DUEÑO
   const handleBuscarObraDueno = (e) => {
     e.preventDefault();
     const cod = codigoBuscar.trim().toUpperCase();
@@ -272,7 +276,6 @@ export default function App() {
     }
   };
 
-  // 4. REGISTRAR PAGO DEL DUEÑO
   const handleRealizarPagoDueno = (e) => {
     e.preventDefault();
     const pago = parseFloat(montoPago);
@@ -301,7 +304,6 @@ export default function App() {
       }
     }));
 
-    // Actualizar en Supabase
     supabase.from('obras').update({ monto_recibido: nuevoTotalRecibido }).eq('id', obraConsultadaId).then();
     supabase.from('pagos_dueno').insert({ obra_id: obraConsultadaId, fecha: fechaActual, monto: pago }).then();
 
@@ -309,7 +311,6 @@ export default function App() {
     setMontoPago('');
   };
 
-  // 5. GERENTE: PAGAR A PERSONAL
   const handlePagarPersonal = (e) => {
     e.preventDefault();
     const pago = parseFloat(montoSueldoPago);
@@ -331,7 +332,6 @@ export default function App() {
     setMontoSueldoPago('');
   };
 
-  // 6. REINICIAR ASISTENCIAS Y AVANCES DE LA SEMANA
   const handleReiniciarAsistenciasSemana = () => {
     if (window.confirm('¿Deseas reiniciar la lista de asistencias semanales a 0 para iniciar una nueva semana?')) {
       setObras((prev) => {
@@ -345,7 +345,6 @@ export default function App() {
     }
   };
 
-  // 7. FINALIZAR / ARCHIVAR OBRA
   const handleFinalizarObra = (idObra) => {
     if (window.confirm(`¿Confirmas que la obra ${idObra} ha sido finalizada? Pasará a obras archivadas.`)) {
       setObras((prev) => ({
@@ -357,7 +356,6 @@ export default function App() {
     }
   };
 
-  // Obtener consolidado de trabajadores
   const obtenerConsolidadoTrabajadores = () => {
     const mapa = {};
     Object.values(obras).forEach((obra) => {
@@ -613,6 +611,14 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* FOTO EVIDENCIA RECIENTE QUE SE GUARDA PERMANENTEMENTE */}
+                {obraConsultada.foto && (
+                  <div style={{ marginBottom: '20px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#0f172a' }}>📷 Última Foto de Evidencia de Avance Guardada:</h4>
+                    <img src={obraConsultada.foto} alt="Evidencia en vivo" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  </div>
+                )}
+
                 {/* HISTORIAL DE ABONOS */}
                 <div>
                   <p style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '6px' }}>Historial de Abonos Recibidos:</p>
@@ -638,7 +644,7 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Panel de Control Gerencial</h2>
 
-            {/* TABLA RESUMEN FINANCIERO (SIN COLUMNAS EXTRAÑAS) */}
+            {/* TABLA RESUMEN FINANCIERO (Limpia sin Avance Prog vs Real) */}
             <h3 style={{ fontSize: '0.95rem', marginBottom: '10px' }}>Resumen General de Obras Activas</h3>
             <div style={{ overflowX: 'auto', marginBottom: '25px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -682,42 +688,6 @@ export default function App() {
                   })}
                 </tbody>
               </table>
-            </div>
-
-            {/* TABLA EXCLUSIVA: REGISTRO DE AVANCES % POR DÍA (LUNES A SÁBADO) */}
-            <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#fff' }}>
-              <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#0f172a' }}>📊 Registro de Avance % de Obras por Días (Lunes a Sábado)</h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                  <thead>
-                    <tr style={{ background: '#1e293b', color: '#fff', textAlign: 'center' }}>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Obra</th>
-                      {diasSemanaList.map((d) => (
-                        <th key={d} style={{ padding: '10px' }}>{d}</th>
-                      ))}
-                      <th style={{ padding: '10px', background: '#2563eb' }}>Avance Total %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {obrasActivas.map((o) => (
-                      <tr key={o.id} style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>
-                        <td style={{ padding: '10px', textAlign: 'left', fontWeight: 'bold' }}>{o.nombre}</td>
-                        {diasSemanaList.map((d) => {
-                          const val = o.avancesPorDia ? o.avancesPorDia[d] || 0 : 0;
-                          return (
-                            <td key={d} style={{ padding: '10px', color: val > 0 ? '#16a34a' : '#94a3b8', fontWeight: val > 0 ? 'bold' : 'normal' }}>
-                              {val > 0 ? `+${val}%` : '0%'}
-                            </td>
-                          );
-                        })}
-                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb', background: '#eff6ff' }}>
-                          {o.porcentajeAvance}% / 100%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
 
             {/* TABLA DE ASISTENCIA SEMANAL POR TRABAJADOR */}
@@ -792,6 +762,42 @@ export default function App() {
                 REGISTRAR PAGO A PERSONAL
               </button>
             </form>
+
+            {/* UN SOLO CUADRO AL FINAL: BITÁCORA Y AVANCE % HASTA EL 100% */}
+            <div style={{ border: '2px solid #2563eb', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#f0f9ff' }}>
+              <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#1e40af' }}>📊 Bitácora de Avances % Acumulados por Día (Lunes a Sábado hasta 100%)</h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', background: '#fff' }}>
+                  <thead>
+                    <tr style={{ background: '#2563eb', color: '#fff', textAlign: 'center' }}>
+                      <th style={{ padding: '10px', textAlign: 'left' }}>Obra</th>
+                      {diasSemanaList.map((d) => (
+                        <th key={d} style={{ padding: '10px' }}>{d}</th>
+                      ))}
+                      <th style={{ padding: '10px', background: '#1e40af' }}>Avance Acumulado Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {obrasActivas.map((o) => (
+                      <tr key={o.id} style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'center' }}>
+                        <td style={{ padding: '10px', textAlign: 'left', fontWeight: 'bold' }}>{o.nombre}</td>
+                        {diasSemanaList.map((d) => {
+                          const val = o.avancesPorDia ? o.avancesPorDia[d] || 0 : 0;
+                          return (
+                            <td key={d} style={{ padding: '10px', color: val > 0 ? '#16a34a' : '#94a3b8', fontWeight: val > 0 ? 'bold' : 'normal' }}>
+                              {val > 0 ? `+${val}%` : '0%'}
+                            </td>
+                          );
+                        })}
+                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb', background: '#dbeafe' }}>
+                          {o.porcentajeAvance}% / 100%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
             {/* SECCIÓN OBRAS ARCHIVADAS / FINALIZADAS */}
             {obrasArchivadas.length > 0 && (
