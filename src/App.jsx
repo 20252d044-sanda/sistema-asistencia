@@ -10,120 +10,66 @@ export default function App() {
   const [tab, setTab] = useState('trabajador');
 
   const [obras, setObras] = useState({
-    'LARAPA-01': {
-      id: 'LARAPA-01',
-      nombre: 'Obra Larapa 01 (Casa Residencial)',
-      ubicacion: 'Sector Larapa #12',
-      presupuestoTotal: 6500,
-      montoRecibido: 0,
-      porcentajeAvance: 0,
-      avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
-      foto: null,
-      finalizada: false,
-      pagosDueno: []
-    },
-    'LARAPA-02': {
-      id: 'LARAPA-02',
-      nombre: 'Obra Larapa 02 (Remodelación Eléctrica)',
-      ubicacion: 'Sector Larapa #45',
-      presupuestoTotal: 4200,
-      montoRecibido: 0,
-      porcentajeAvance: 0,
-      avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
-      foto: null,
-      finalizada: false,
-      pagosDueno: []
-    },
-    'ANDINA-01': {
-      id: 'ANDINA-01',
-      nombre: 'Obra Andina 01 (Cableado General)',
-      ubicacion: 'Urbanización Andina B-4',
-      presupuestoTotal: 8200,
-      montoRecibido: 0,
-      porcentajeAvance: 0,
-      avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
-      foto: null,
-      finalizada: false,
-      pagosDueno: []
-    },
-    'ANDINA-02': {
-      id: 'ANDINA-02',
-      nombre: 'Obra Andina 02 (Instalación Luminarias)',
-      ubicacion: 'Urbanización Andina C-10',
-      presupuestoTotal: 5100,
-      montoRecibido: 0,
-      porcentajeAvance: 0,
-      avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
-      foto: null,
-      finalizada: false,
-      pagosDueno: []
-    },
-    'SAYLLA-01': {
-      id: 'SAYLLA-01',
-      nombre: 'Obra Saylla 01 (Tableros Industriales)',
-      ubicacion: 'Av. Principal Saylla #45',
-      presupuestoTotal: 3800,
-      montoRecibido: 0,
-      porcentajeAvance: 0,
-      avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
-      foto: null,
-      finalizada: false,
-      pagosDueno: []
-    }
+    'LARAPA-01': { id: 'LARAPA-01', nombre: 'Obra Larapa 01 (Casa Residencial)', ubicacion: 'Sector Larapa #12', presupuestoTotal: 6500, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
+    'LARAPA-02': { id: 'LARAPA-02', nombre: 'Obra Larapa 02 (Remodelación Eléctrica)', ubicacion: 'Sector Larapa #45', presupuestoTotal: 4200, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
+    'ANDINA-01': { id: 'ANDINA-01', nombre: 'Obra Andina 01 (Cableado General)', ubicacion: 'Urbanización Andina B-4', presupuestoTotal: 8200, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
+    'ANDINA-02': { id: 'ANDINA-02', nombre: 'Obra Andina 02 (Instalación Luminarias)', ubicacion: 'Urbanización Andina C-10', presupuestoTotal: 5100, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
+    'SAYLLA-01': { id: 'SAYLLA-01', nombre: 'Obra Saylla 01 (Tableros Industriales)', ubicacion: 'Av. Principal Saylla #45', presupuestoTotal: 3800, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] }
   });
 
   const [asistenciasGlobales, setAsistenciasGlobales] = useState({});
 
   useEffect(() => {
-    const cargarDatosSupabase = async () => {
-      try {
-        const { data: dataObras } = await supabase.from('obras').select('*');
-        if (dataObras && dataObras.length > 0) {
-          const obrasMap = {};
-          dataObras.forEach((o) => {
-            obrasMap[o.id] = {
-              id: o.id,
-              nombre: o.nombre,
-              ubicacion: o.ubicacion,
-              presupuestoTotal: Number(o.presupuesto_total) || 0,
-              montoRecibido: Number(o.monto_recibido) || 0,
-              porcentajeAvance: Number(o.porcentaje_avance) || 0,
-              avancesPorDia: o.avances_por_dia || { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
-              foto: o.foto || null,
-              finalizada: o.finalizada || false,
-              pagosDueno: []
-            };
-          });
-
-          const { data: dataAsis } = await supabase.from('asistencias').select('*');
-          if (dataAsis) {
-            const mapAsis = {};
-            dataAsis.forEach((a) => {
-              mapAsis[a.trabajador] = {
-                dias: a.dias || [],
-                ultimaObra: a.obra_id || ''
-              };
-            });
-            setAsistenciasGlobales(mapAsis);
-          }
-
-          const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
-          if (dataPagos) {
-            dataPagos.forEach((p) => {
-              if (obrasMap[p.obra_id]) {
-                obrasMap[p.obra_id].pagosDueno.push({ fecha: p.fecha, monto: Number(p.monto) });
-              }
-            });
-          }
-
-          setObras(obrasMap);
-        }
-      } catch (e) {
-        console.error("Error al sincronizar con Supabase:", e);
-      }
-    };
     cargarDatosSupabase();
   }, []);
+
+  const cargarDatosSupabase = async () => {
+    try {
+      const { data: dataObras } = await supabase.from('obras').select('*');
+      if (dataObras && dataObras.length > 0) {
+        const obrasMap = { ...obras };
+        dataObras.forEach((o) => {
+          obrasMap[o.id] = {
+            id: o.id,
+            nombre: o.nombre,
+            ubicacion: o.ubicacion,
+            presupuestoTotal: Number(o.presupuesto_total) || 0,
+            montoRecibido: Number(o.monto_recibido) || 0,
+            porcentajeAvance: Number(o.porcentaje_avance) || 0,
+            avancesPorDia: o.avances_por_dia || { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
+            foto: o.foto || null,
+            finalizada: o.finalizada || false,
+            pagosDueno: []
+          };
+        });
+
+        const { data: dataAsis } = await supabase.from('asistencias').select('*');
+        if (dataAsis) {
+          const mapAsis = {};
+          dataAsis.forEach((a) => {
+            mapAsis[a.trabajador] = {
+              dias: a.dias || [],
+              ultimaObra: a.obra_id || ''
+            };
+          });
+          setAsistenciasGlobales(mapAsis);
+        }
+
+        const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
+        if (dataPagos) {
+          dataPagos.forEach((p) => {
+            if (obrasMap[p.obra_id]) {
+              obrasMap[p.obra_id].pagosDueno.push({ fecha: p.fecha, monto: Number(p.monto) });
+            }
+          });
+        }
+
+        setObras(obrasMap);
+      }
+    } catch (e) {
+      console.error("Error al sincronizar datos:", e);
+    }
+  };
 
   const [historialPagosPersonal, setHistorialPagosPersonal] = useState([]);
   const [nombreTrabajador, setNombreTrabajador] = useState('');
@@ -149,7 +95,7 @@ export default function App() {
         img.src = evt.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const maxDim = 600;
+          const maxDim = 500;
           let width = img.width;
           let height = img.height;
           if (width > height && width > maxDim) {
@@ -163,7 +109,7 @@ export default function App() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.6);
+          const compressed = canvas.toDataURL('image/jpeg', 0.5);
           setFotoPreview(compressed);
         };
       };
@@ -171,8 +117,7 @@ export default function App() {
     }
   };
 
-  // UN SOLO FORMULARIO: Asistencia + Avance % + Foto
-  const handleRegistrarJornadaUnificada = (e) => {
+  const handleRegistrarJornadaUnificada = async (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
     if (!nombreClean) {
@@ -180,7 +125,6 @@ export default function App() {
       return;
     }
 
-    // 1. Asistencia
     const regPrevio = asistenciasGlobales[nombreClean] || { dias: [], ultimaObra: '' };
     const yaTieneAsistencia = regPrevio.dias.includes(diaSemana);
     const nuevosDias = yaTieneAsistencia ? regPrevio.dias : [...regPrevio.dias, diaSemana];
@@ -196,43 +140,44 @@ export default function App() {
     };
     setAsistenciasGlobales(nuevoRegistroGlobal);
 
-    supabase.from('asistencias').upsert({
+    await supabase.from('asistencias').upsert({
       trabajador: nombreClean,
       obra_id: obraSeleccionada,
       dias: nuevosDias
-    }, { onConflict: 'trabajador' }).then();
+    }, { onConflict: 'trabajador' });
 
-    // 2. Avance % opcional
     const incremento = parseInt(avanceInput) || 0;
     if (incremento > 0 || fotoPreview) {
-      setObras((prev) => {
-        const obraPrev = prev[obraSeleccionada];
-        const nuevosAvancesDia = {
-          ...obraPrev.avancesPorDia,
-          [diaSemana]: (obraPrev.avancesPorDia[diaSemana] || 0) + incremento
-        };
-        const nuevoTotalAvance = Math.min(100, Object.values(nuevosAvancesDia).reduce((a, b) => a + b, 0));
-        const fotoGuardar = fotoPreview || obraPrev.foto;
+      const obraPrev = obras[obraSeleccionada];
+      const nuevosAvancesDia = {
+        ...obraPrev.avancesPorDia,
+        [diaSemana]: (obraPrev.avancesPorDia[diaSemana] || 0) + incremento
+      };
+      const nuevoTotalAvance = Math.min(100, Object.values(nuevosAvancesDia).reduce((a, b) => a + b, 0));
+      const fotoGuardar = fotoPreview || obraPrev.foto;
 
-        supabase.from('obras')
-          .update({ 
-            porcentaje_avance: nuevoTotalAvance,
-            avances_por_dia: nuevosAvancesDia,
-            foto: fotoGuardar
-          })
-          .eq('id', obraSeleccionada)
-          .then();
+      setObras((prev) => ({
+        ...prev,
+        [obraSeleccionada]: {
+          ...obraPrev,
+          porcentajeAvance: nuevoTotalAvance,
+          avancesPorDia: nuevosAvancesDia,
+          foto: fotoGuardar
+        }
+      }));
 
-        return {
-          ...prev,
-          [obraSeleccionada]: {
-            ...obraPrev,
-            porcentajeAvance: nuevoTotalAvance,
-            avancesPorDia: nuevosAvancesDia,
-            foto: fotoGuardar
-          }
-        };
-      });
+      await supabase.from('obras')
+        .upsert({ 
+          id: obraSeleccionada,
+          nombre: obraPrev.nombre,
+          ubicacion: obraPrev.ubicacion,
+          presupuesto_total: obraPrev.presupuestoTotal,
+          monto_recibido: obraPrev.montoRecibido,
+          porcentaje_avance: nuevoTotalAvance,
+          avances_por_dia: nuevosAvancesDia,
+          foto: fotoGuardar,
+          finalizada: obraPrev.finalizada
+        });
     }
 
     setTicketAsistencia({
@@ -260,7 +205,7 @@ export default function App() {
     }
   };
 
-  const handleRealizarPagoDueno = (e) => {
+  const handleRealizarPagoDueno = async (e) => {
     e.preventDefault();
     const pago = parseFloat(montoPago);
     if (!pago || pago <= 0) {
@@ -288,8 +233,8 @@ export default function App() {
       }
     }));
 
-    supabase.from('obras').update({ monto_recibido: nuevoTotalRecibido }).eq('id', obraConsultadaId).then();
-    supabase.from('pagos_dueno').insert({ obra_id: obraConsultadaId, fecha: fechaActual, monto: pago }).then();
+    await supabase.from('obras').update({ monto_recibido: nuevoTotalRecibido }).eq('id', obraConsultadaId);
+    await supabase.from('pagos_dueno').insert({ obra_id: obraConsultadaId, fecha: fechaActual, monto: pago });
 
     alert(`✓ Pago de S/. ${pago.toFixed(2)} recibido correctamente.`);
     setMontoPago('');
@@ -316,22 +261,22 @@ export default function App() {
     setMontoSueldoPago('');
   };
 
-  const handleReiniciarAsistenciasSemana = () => {
+  const handleReiniciarAsistenciasSemana = async () => {
     if (window.confirm('¿Deseas reiniciar las asistencias semanales a 0 para iniciar una nueva semana?')) {
       setAsistenciasGlobales({});
-      supabase.from('asistencias').delete().neq('trabajador', '').then();
+      await supabase.from('asistencias').delete().neq('trabajador', '');
       alert('✓ Asistencias semanales reiniciadas correctamente.');
     }
   };
 
-  const handleFinalizarObra = (idObra) => {
+  const handleFinalizarObra = async (idObra) => {
     if (window.confirm(`¿Confirmas que la obra ${idObra} ha sido finalizada? Pasará a obras archivadas.`)) {
       setObras((prev) => ({
         ...prev,
         [idObra]: { ...prev[idObra], finalizada: true, porcentajeAvance: 100 }
       }));
 
-      supabase.from('obras').update({ finalizada: true, porcentaje_avance: 100 }).eq('id', idObra).then();
+      await supabase.from('obras').update({ finalizada: true, porcentaje_avance: 100 }).eq('id', idObra);
     }
   };
 
@@ -391,7 +336,7 @@ export default function App() {
       {/* CONTENIDO PRINCIPAL */}
       <div style={{ background: '#fff', padding: '25px', border: '1px solid #cbd5e1', borderRadius: '0 0 8px 8px' }}>
 
-        {/* 1. MÓDULO TRABAJADOR (UN SOLO FORMULARIO) */}
+        {/* 1. MÓDULO TRABAJADOR */}
         {tab === 'trabajador' && (
           <div>
             <h2 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '15px' }}>Registro de Jornada de Trabajo</h2>
