@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Conexión con tu base de datos Supabase
 const SUPABASE_URL = 'https://uhanzkksmktlucmxevls.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_44AbuuHbYKcPWNlT9VlXUw_u4-bb'; // Pega tu clave completa aquí si falta algún caracter
+const SUPABASE_KEY = 'sb_publishable_44AbuuHbYKcPWNlT9VlXUw_u4-bb'; 
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
