@@ -10,7 +10,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 export default function App() {
   const [tab, setTab] = useState('trabajador');
 
-  // Base de Datos de Obras
+  // Base de Datos de Obras (Inician en 0% de avance)
   const [obras, setObras] = useState({
     'LARAPA-01': {
       id: 'LARAPA-01',
@@ -18,8 +18,7 @@ export default function App() {
       ubicacion: 'Sector Larapa #12',
       presupuestoTotal: 6500,
       montoRecibido: 0,
-      avanceProgramado: 80,
-      porcentajeAvance: 60,
+      porcentajeAvance: 0,
       foto: null,
       finalizada: false,
       asistencias: {
@@ -34,8 +33,7 @@ export default function App() {
       ubicacion: 'Sector Larapa #45',
       presupuestoTotal: 4200,
       montoRecibido: 0,
-      avanceProgramado: 40,
-      porcentajeAvance: 30,
+      porcentajeAvance: 0,
       foto: null,
       finalizada: false,
       asistencias: {},
@@ -47,8 +45,7 @@ export default function App() {
       ubicacion: 'Urbanización Andina B-4',
       presupuestoTotal: 8200,
       montoRecibido: 0,
-      avanceProgramado: 30,
-      porcentajeAvance: 25,
+      porcentajeAvance: 0,
       foto: null,
       finalizada: false,
       asistencias: {
@@ -62,8 +59,7 @@ export default function App() {
       ubicacion: 'Urbanización Andina C-10',
       presupuestoTotal: 5100,
       montoRecibido: 0,
-      avanceProgramado: 20,
-      porcentajeAvance: 10,
+      porcentajeAvance: 0,
       foto: null,
       finalizada: false,
       asistencias: {},
@@ -75,14 +71,18 @@ export default function App() {
       ubicacion: 'Av. Principal Saylla #45',
       presupuestoTotal: 3800,
       montoRecibido: 0,
-      avanceProgramado: 50,
-      porcentajeAvance: 40,
+      porcentajeAvance: 0,
       foto: null,
       finalizada: false,
       asistencias: {},
       pagosDueno: []
     }
   });
+
+  // Bitácora de Avances Diarios (Detalle por día)
+  const [historialAvancesDiarios, setHistorialAvancesDiarios] = useState([
+    { id: 1, obraId: 'LARAPA-01', dia: 'Sábado', incremento: 10, porcentajeAcumulado: 10, fecha: '11/10/2026', notas: 'Instalación de tuberías principales' }
+  ]);
 
   // Cargar datos automáticamente desde Supabase
   useEffect(() => {
@@ -98,7 +98,6 @@ export default function App() {
               ubicacion: o.ubicacion,
               presupuestoTotal: Number(o.presupuesto_total) || 0,
               montoRecibido: Number(o.monto_recibido) || 0,
-              avanceProgramado: Number(o.avance_programado) || 0,
               porcentajeAvance: Number(o.porcentaje_avance) || 0,
               finalizada: o.finalizada || false,
               foto: null,
@@ -206,7 +205,7 @@ export default function App() {
     setNombreTrabajador('');
   };
 
-  // 2. REGISTRAR AVANCE Y FOTO
+  // 2. REGISTRAR AVANCE Y FOTO (SUMANDO EL PORCENTAJE)
   const handleCargarFoto = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -218,29 +217,47 @@ export default function App() {
 
   const handleGuardarAvance = (e) => {
     e.preventDefault();
-    if (!avanceInput) {
-      alert('Ingresa el % de avance.');
+    const incremento = parseInt(avanceInput);
+    if (isNaN(incremento) || incremento <= 0) {
+      alert('Ingresa un % de avance válido.');
       return;
     }
 
-    const nuevoAvance = parseInt(avanceInput);
+    const obraActual = obras[obraSeleccionada];
+    const nuevoTotalAvance = Math.min(100, obraActual.porcentajeAvance + incremento);
+    const fechaActual = new Date().toLocaleDateString('es-PE');
 
+    // Actualizar estado local de Obras
     setObras((prev) => ({
       ...prev,
       [obraSeleccionada]: {
         ...prev[obraSeleccionada],
-        porcentajeAvance: nuevoAvance,
+        porcentajeAvance: nuevoTotalAvance,
         foto: fotoPreview || prev[obraSeleccionada].foto
       }
     }));
 
+    // Agregar a la bitácora de avances diarios por día
+    setHistorialAvancesDiarios((prev) => [
+      {
+        id: Date.now(),
+        obraId: obraSeleccionada,
+        dia: diaSemana,
+        incremento: incremento,
+        porcentajeAcumulado: nuevoTotalAvance,
+        fecha: fechaActual,
+        foto: fotoPreview
+      },
+      ...prev
+    ]);
+
     // Actualizar en Supabase
     supabase.from('obras')
-      .update({ porcentaje_avance: nuevoAvance })
+      .update({ porcentaje_avance: nuevoTotalAvance })
       .eq('id', obraSeleccionada)
       .then();
 
-    alert(`✓ Avance del ${avanceInput}% y foto guardados correctamente.`);
+    alert(`✓ Avance sumado (+${incremento}%). La obra ${obraActual.nombre} ahora tiene ${nuevoTotalAvance}% de avance.`);
     setAvanceInput('');
     setFotoPreview(null);
   };
@@ -471,20 +488,20 @@ export default function App() {
             </form>
 
             <form onSubmit={handleGuardarAvance} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px' }}>
-              <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>2. Reportar Avance y Foto de la Obra</h3>
+              <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>2. Reportar Avance Diario (% que se suma hoy)</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
                 <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>% Avance Real de Obra:</label>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>% Avance Logrado Hoy (Ej. +10%):</label>
                   <input
                     type="number"
                     value={avanceInput}
                     onChange={(e) => setAvanceInput(e.target.value)}
-                    placeholder="Ej. 65"
+                    placeholder="Ej. 10"
                     style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Foto Evidencia:</label>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b' }}>Foto Evidencia del Día:</label>
                   <input type="file" accept="image/*" onChange={handleCargarFoto} style={{ marginTop: '4px' }} />
                 </div>
               </div>
@@ -496,7 +513,7 @@ export default function App() {
               )}
 
               <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '12px 20px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
-                GUARDAR AVANCE Y FOTO EN LA OBRA
+                SUMAR AVANCE Y GUARDAR
               </button>
             </form>
           </div>
@@ -579,21 +596,13 @@ export default function App() {
                 {/* AVANCE FÍSICO */}
                 <div style={{ marginBottom: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                    <span>Avance Físico de Obra:</span>
+                    <span>Avance Acumulado de la Obra:</span>
                     <span style={{ color: '#2563eb' }}>{obraConsultada.porcentajeAvance}%</span>
                   </div>
                   <div style={{ background: '#e2e8f0', borderRadius: '10px', height: '14px', overflow: 'hidden', marginTop: '4px' }}>
                     <div style={{ background: '#2563eb', height: '100%', width: `${obraConsultada.porcentajeAvance}%`, transition: 'width 0.4s' }}></div>
                   </div>
                 </div>
-
-                {/* FOTO EVIDENCIA DE LA OBRA */}
-                {obraConsultada.foto && (
-                  <div style={{ marginBottom: '20px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#0f172a' }}>Última Foto de Evidencia de Avance:</h4>
-                    <img src={obraConsultada.foto} alt="Evidencia en vivo" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  </div>
-                )}
 
                 {/* HISTORIAL DE ABONOS */}
                 <div>
@@ -660,6 +669,38 @@ export default function App() {
               )}
             </div>
 
+            {/* TABLA: BITÁCORA Y DETALLE DE AVANCES DIARIOS */}
+            <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#f8fafc' }}>
+              <h3 style={{ fontSize: '0.95rem', margin: '0 0 10px 0', color: '#0f172a' }}>📅 Bitácora de Avances Diarios (Detalle por Día)</h3>
+              {historialAvancesDiarios.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>Aún no hay reportes diarios registrados.</p>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', background: '#fff' }}>
+                  <thead>
+                    <tr style={{ background: '#2563eb', color: '#fff', textAlign: 'left' }}>
+                      <th style={{ padding: '8px' }}>Obra</th>
+                      <th style={{ padding: '8px' }}>Día / Fecha</th>
+                      <th style={{ padding: '8px' }}>% Sumado Hoy</th>
+                      <th style={{ padding: '8px' }}>% Acumulado Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historialAvancesDiarios.map((log) => {
+                      const obraInfo = obras[log.obraId];
+                      return (
+                        <tr key={log.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '8px', fontWeight: 'bold' }}>{obraInfo ? obraInfo.nombre : log.obraId}</td>
+                          <td style={{ padding: '8px' }}><strong>{log.dia}</strong> ({log.fecha})</td>
+                          <td style={{ padding: '8px', color: '#16a34a', fontWeight: 'bold' }}>+{log.incremento}%</td>
+                          <td style={{ padding: '8px', fontWeight: 'bold', color: '#2563eb' }}>{log.porcentajeAcumulado}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
             {/* MÓDULO PARA PAGAR A TRABAJADOR */}
             <form onSubmit={handlePagarPersonal} style={{ border: '1px solid #cbd5e1', padding: '20px', borderRadius: '8px', marginBottom: '25px', background: '#f8fafc' }}>
               <h3 style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#0f172a' }}>Pagar Sueldo a Personal</h3>
@@ -703,7 +744,7 @@ export default function App() {
                     <th style={{ padding: '10px' }}>Presupuesto Total</th>
                     <th style={{ padding: '10px' }}>Monto Recibido</th>
                     <th style={{ padding: '10px' }}>Saldo Pendiente</th>
-                    <th style={{ padding: '10px' }}>Avance Prog. vs Real</th>
+                    <th style={{ padding: '10px' }}>Avance %</th>
                     <th style={{ padding: '10px' }}>Acción</th>
                   </tr>
                 </thead>
@@ -725,8 +766,14 @@ export default function App() {
                         <td style={{ padding: '10px', color: '#b45309', fontWeight: 'bold' }}>
                           S/. {saldo.toFixed(2)}
                         </td>
-                        <td style={{ padding: '10px' }}>
-                          Prog: <strong>{o.avanceProgramado}%</strong> | Real: <strong style={{ color: o.porcentajeAvance >= o.avanceProgramado ? '#16a34a' : '#d97706' }}>{o.porcentajeAvance}%</strong>
+                        <td style={{ padding: '10px', width: '160px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: 'bold' }}>
+                            <span>{o.porcentajeAvance}%</span>
+                            <span>100%</span>
+                          </div>
+                          <div style={{ background: '#e2e8f0', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
+                            <div style={{ background: '#2563eb', height: '100%', width: `${o.porcentajeAvance}%`, transition: 'width 0.3s' }}></div>
+                          </div>
                         </td>
                         <td style={{ padding: '10px' }}>
                           <button
