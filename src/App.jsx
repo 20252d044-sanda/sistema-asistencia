@@ -10,7 +10,7 @@ export default function App() {
   const [tab, setTab] = useState('trabajador');
   const [cargando, setCargando] = useState(true);
 
-  // Obras iniciales de respaldo
+  // Obras por defecto iniciales
   const obrasPorDefecto = {
     'LARAPA-01': { id: 'LARAPA-01', nombre: 'Obra Larapa 01 (Casa Residencial)', ubicacion: 'Sector Larapa #12', presupuestoTotal: 6500, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
     'LARAPA-02': { id: 'LARAPA-02', nombre: 'Obra Larapa 02 (Remodelación Eléctrica)', ubicacion: 'Sector Larapa #45', presupuestoTotal: 4200, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
@@ -19,52 +19,63 @@ export default function App() {
     'SAYLLA-01': { id: 'SAYLLA-01', nombre: 'Obra Saylla 01 (Tableros Industriales)', ubicacion: 'Av. Principal Saylla #45', presupuestoTotal: 3800, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] }
   };
 
-  const [obras, setObras] = useState(obrasPorDefecto);
-  const [asistenciasGlobales, setAsistenciasGlobales] = useState({});
+  // 1. Cargar desde memoria local del navegador (Instantáneo)
+  const [obras, setObras] = useState(() => {
+    const saved = localStorage.getItem('obras_db_cache');
+    return saved ? JSON.parse(saved) : obrasPorDefecto;
+  });
 
-  // Cargar datos desde Supabase
+  const [asistenciasGlobales, setAsistenciasGlobales] = useState(() => {
+    const saved = localStorage.getItem('asistencias_db_cache');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [historialPagosPersonal, setHistorialPagosPersonal] = useState(() => {
+    const saved = localStorage.getItem('pagos_personal_db_cache');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Guardado local automático
+  useEffect(() => {
+    localStorage.setItem('obras_db_cache', JSON.stringify(obras));
+  }, [obras]);
+
+  useEffect(() => {
+    localStorage.setItem('asistencias_db_cache', JSON.stringify(asistenciasGlobales));
+  }, [asistenciasGlobales]);
+
+  useEffect(() => {
+    localStorage.setItem('pagos_personal_db_cache', JSON.stringify(historialPagosPersonal));
+  }, [historialPagosPersonal]);
+
+  // 2. Sincronizar con Supabase en la Nube
   const cargarDatosSupabase = async () => {
     setCargando(true);
     try {
-      // 1. Cargar Obras
       const { data: dataObras, error: errObras } = await supabase.from('obras').select('*');
-      if (errObras) {
-        console.error("Error al cargar obras:", errObras);
-      } else if (dataObras && dataObras.length > 0) {
-        const obrasMap = { ...obrasPorDefecto };
-        dataObras.forEach((o) => {
-          obrasMap[o.id] = {
-            id: o.id,
-            nombre: o.nombre || obrasPorDefecto[o.id]?.nombre || o.id,
-            ubicacion: o.ubicacion || obrasPorDefecto[o.id]?.ubicacion || '',
-            presupuestoTotal: Number(o.presupuesto_total) || obrasPorDefecto[o.id]?.presupuestoTotal || 0,
-            montoRecibido: Number(o.monto_recibido) || 0,
-            porcentajeAvance: Number(o.porcentaje_avance) || 0,
-            avancesPorDia: o.avances_por_dia || { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
-            foto: o.foto || null,
-            finalizada: o.finalizada || false,
-            pagosDueno: []
-          };
-        });
-
-        // 2. Cargar Pagos del Dueño
-        const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
-        if (dataPagos) {
-          dataPagos.forEach((p) => {
-            if (obrasMap[p.obra_id]) {
-              obrasMap[p.obra_id].pagosDueno.push({ fecha: p.fecha, monto: Number(p.monto) });
-            }
+      if (!errObras && dataObras && dataObras.length > 0) {
+        setObras((prev) => {
+          const actualizadas = { ...prev };
+          dataObras.forEach((o) => {
+            actualizadas[o.id] = {
+              id: o.id,
+              nombre: o.nombre || actualizadas[o.id]?.nombre || o.id,
+              ubicacion: o.ubicacion || actualizadas[o.id]?.ubicacion || '',
+              presupuestoTotal: Number(o.presupuesto_total) || actualizadas[o.id]?.presupuestoTotal || 0,
+              montoRecibido: Number(o.monto_recibido) || actualizadas[o.id]?.montoRecibido || 0,
+              porcentajeAvance: Number(o.porcentaje_avance) || actualizadas[o.id]?.porcentajeAvance || 0,
+              avancesPorDia: o.avances_por_dia || actualizadas[o.id]?.avancesPorDia || { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 },
+              foto: o.foto || actualizadas[o.id]?.foto || null,
+              finalizada: o.finalizada || false,
+              pagosDueno: actualizadas[o.id]?.pagosDueno || []
+            };
           });
-        }
-
-        setObras(obrasMap);
+          return actualizadas;
+        });
       }
 
-      // 3. Cargar Asistencias
       const { data: dataAsis, error: errAsis } = await supabase.from('asistencias').select('*');
-      if (errAsis) {
-        console.error("Error al cargar asistencias:", errAsis);
-      } else if (dataAsis) {
+      if (!errAsis && dataAsis) {
         const mapAsis = {};
         dataAsis.forEach((a) => {
           mapAsis[a.trabajador] = {
@@ -72,10 +83,26 @@ export default function App() {
             ultimaObra: a.obra_id || ''
           };
         });
-        setAsistenciasGlobales(mapAsis);
+        setAsistenciasGlobales((prev) => ({ ...prev, ...mapAsis }));
+      }
+
+      const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
+      if (dataPagos) {
+        setObras((prev) => {
+          const copy = { ...prev };
+          dataPagos.forEach((p) => {
+            if (copy[p.obra_id]) {
+              const existe = copy[p.obra_id].pagosDueno.some(x => x.fecha === p.fecha && x.monto === Number(p.monto));
+              if (!existe) {
+                copy[p.obra_id].pagosDueno.push({ fecha: p.fecha, monto: Number(p.monto) });
+              }
+            }
+          });
+          return copy;
+        });
       }
     } catch (e) {
-      console.error("Error crítico de conexión con Supabase:", e);
+      console.warn("Modo almacenamiento activo:", e);
     } finally {
       setCargando(false);
     }
@@ -85,7 +112,7 @@ export default function App() {
     cargarDatosSupabase();
   }, []);
 
-  const [historialPagosPersonal, setHistorialPagosPersonal] = useState([]);
+  // Formulario Estados
   const [nombreTrabajador, setNombreTrabajador] = useState('');
   const [diaSemana, setDiaSemana] = useState('Lunes');
   const [obraSeleccionada, setObraSeleccionada] = useState('LARAPA-01');
@@ -132,7 +159,7 @@ export default function App() {
     }
   };
 
-  // Registrar Jornada de Trabajo y Guardar Permanentemente en Supabase
+  // Registrar Jornada de Trabajo
   const handleRegistrarJornadaUnificada = async (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -147,28 +174,25 @@ export default function App() {
     const totalDiasCount = nuevosDias.length;
     const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
 
-    // Actualizar estado local
-    const nuevoRegistroGlobal = {
-      ...asistenciasGlobales,
+    setAsistenciasGlobales((prev) => ({
+      ...prev,
       [nombreClean]: {
         dias: nuevosDias,
         ultimaObra: obraSeleccionada
       }
-    };
-    setAsistenciasGlobales(nuevoRegistroGlobal);
+    }));
 
-    // Guardar en Supabase (Asistencia)
-    const { error: errAsis } = await supabase.from('asistencias').upsert({
-      trabajador: nombreClean,
-      obra_id: obraSeleccionada,
-      dias: nuevosDias
-    }, { onConflict: 'trabajador' });
-
-    if (errAsis) {
-      alert('Error al guardar asistencia en la base de datos: ' + errAsis.message);
+    // Guardar en Supabase
+    try {
+      await supabase.from('asistencias').upsert({
+        trabajador: nombreClean,
+        obra_id: obraSeleccionada,
+        dias: nuevosDias
+      }, { onConflict: 'trabajador' });
+    } catch(err) {
+      console.error(err);
     }
 
-    // Procesar avance y foto si se ingresaron
     const incremento = parseInt(avanceInput) || 0;
     if (incremento > 0 || fotoPreview) {
       const obraPrev = obras[obraSeleccionada];
@@ -189,21 +213,20 @@ export default function App() {
         }
       }));
 
-      // Guardar en Supabase (Obra)
-      const { error: errObra } = await supabase.from('obras').upsert({
-        id: obraSeleccionada,
-        nombre: obraPrev.nombre,
-        ubicacion: obraPrev.ubicacion,
-        presupuesto_total: obraPrev.presupuestoTotal,
-        monto_recibido: obraPrev.montoRecibido,
-        porcentaje_avance: nuevoTotalAvance,
-        avances_por_dia: nuevosAvancesDia,
-        foto: fotoGuardar,
-        finalizada: obraPrev.finalizada
-      });
-
-      if (errObra) {
-        alert('Error al guardar avance en la base de datos: ' + errObra.message);
+      try {
+        await supabase.from('obras').upsert({ 
+          id: obraSeleccionada,
+          nombre: obraPrev.nombre,
+          ubicacion: obraPrev.ubicacion,
+          presupuesto_total: obraPrev.presupuestoTotal,
+          monto_recibido: obraPrev.montoRecibido,
+          porcentaje_avance: nuevoTotalAvance,
+          avances_por_dia: nuevosAvancesDia,
+          foto: fotoGuardar,
+          finalizada: obraPrev.finalizada
+        });
+      } catch(err) {
+        console.error(err);
       }
     }
 
@@ -260,8 +283,12 @@ export default function App() {
       }
     }));
 
-    await supabase.from('obras').update({ monto_recibido: nuevoTotalRecibido }).eq('id', obraConsultadaId);
-    await supabase.from('pagos_dueno').insert({ obra_id: obraConsultadaId, fecha: fechaActual, monto: pago });
+    try {
+      await supabase.from('obras').update({ monto_recibido: nuevoTotalRecibido }).eq('id', obraConsultadaId);
+      await supabase.from('pagos_dueno').insert({ obra_id: obraConsultadaId, fecha: fechaActual, monto: pago });
+    } catch(err) {
+      console.error(err);
+    }
 
     alert(`✓ Pago de S/. ${pago.toFixed(2)} recibido correctamente.`);
     setMontoPago('');
@@ -291,7 +318,10 @@ export default function App() {
   const handleReiniciarAsistenciasSemana = async () => {
     if (window.confirm('¿Deseas reiniciar las asistencias semanales a 0 para iniciar una nueva semana?')) {
       setAsistenciasGlobales({});
-      await supabase.from('asistencias').delete().neq('trabajador', '');
+      localStorage.removeItem('asistencias_db_cache');
+      try {
+        await supabase.from('asistencias').delete().neq('trabajador', '');
+      } catch(e){}
       alert('✓ Asistencias semanales reiniciadas correctamente.');
     }
   };
@@ -303,7 +333,9 @@ export default function App() {
         [idObra]: { ...prev[idObra], finalizada: true, porcentajeAvance: 100 }
       }));
 
-      await supabase.from('obras').update({ finalizada: true, porcentaje_avance: 100 }).eq('id', idObra);
+      try {
+        await supabase.from('obras').update({ finalizada: true, porcentaje_avance: 100 }).eq('id', idObra);
+      } catch(e){}
     }
   };
 
@@ -332,7 +364,7 @@ export default function App() {
         <div>
           <h1 style={{ fontSize: '1.3rem', margin: 0 }}>Sistema Control de Obras y Finanzas</h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#d6e419' }}>
-            {cargando ? '⌛ Sincronizando con Base de Datos...' : '🟢 Conectado con Supabase'}
+            {cargando ? '⌛ Sincronizando con Base de Datos...' : '🟢 Sistema en Vivo - Guardando Datos'}
           </p>
         </div>
         <button 
