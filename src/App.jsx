@@ -50,13 +50,13 @@ export default function App() {
         });
       }
 
-      // 2. Asistencias
+      // 2. Asistencias (Carga limpia directa desde Supabase)
       const { data: dataAsis, error: errAsis } = await supabase.from('asistencias').select('*');
       if (!errAsis && dataAsis) {
         const mapAsis = {};
         dataAsis.forEach((a) => {
           mapAsis[a.trabajador] = {
-            dias: a.dias || [],
+            dias: Array.isArray(a.dias) ? a.dias : [],
             ultimaObra: a.obra_id || ''
           };
         });
@@ -133,7 +133,7 @@ export default function App() {
     }
   };
 
-  // REGISTRAR TRABAJADOR Y SINCRONIZAR A SUPABASE
+  // REGISTRAR TRABAJADOR Y GUARDAR ASISTENCIA EN SUPABASE
   const handleRegistrarJornadaUnificada = async (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -148,6 +148,7 @@ export default function App() {
     const totalDiasCount = nuevosDias.length;
     const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
 
+    // Actualizar estado local inmediatamente
     setAsistenciasGlobales((prev) => ({
       ...prev,
       [nombreClean]: {
@@ -156,6 +157,7 @@ export default function App() {
       }
     }));
 
+    // GUARDAR OBLIGATORIO EN BASE DE DATOS SUPABASE
     try {
       await supabase.from('asistencias').upsert({
         trabajador: nombreClean,
@@ -163,7 +165,7 @@ export default function App() {
         dias: nuevosDias
       }, { onConflict: 'trabajador' });
     } catch(err) {
-      console.error(err);
+      console.error("Error guardando asistencia:", err);
     }
 
     const incremento = parseInt(avanceInput) || 0;
@@ -228,7 +230,7 @@ export default function App() {
     }
   };
 
-  // REGISTRAR PAGO DEL DUEÑO Y GUARDAR EN NUBE
+  // REGISTRAR PAGO DEL DUEÑO
   const handleRealizarPagoDueno = async (e) => {
     e.preventDefault();
     const pago = parseFloat(montoPago);
@@ -313,11 +315,12 @@ export default function App() {
   };
 
   const listaTrabajadoresGlobal = Object.entries(asistenciasGlobales).map(([nombre, item]) => {
-    const countDias = item.dias.length;
+    const countDias = item.dias ? item.dias.length : 0;
     const porcentaje = Math.round((countDias / 6) * 100);
     const obraObj = obras[item.ultimaObra];
     return {
       nombre,
+      diasList: item.dias || [],
       diasAsistidos: countDias,
       porcentaje,
       obraNombre: obraObj ? obraObj.nombre : item.ultimaObra
@@ -574,12 +577,12 @@ export default function App() {
             {/* 1. ASISTENCIA SEMANAL GLOBAL */}
             <div style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', marginBottom: '25px', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal por Trabajador</h3>
+                <h3 style={{ fontSize: '0.95rem', margin: 0, color: '#0f172a' }}>📋 Asistencia Semanal Detallada por Trabajador</h3>
                 <button
                   onClick={handleReiniciarAsistenciasSemana}
                   style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Reiniciar Asistencias de la Semana (Domingos)
+                  Reiniciar Asistencias de la Semana
                 </button>
               </div>
 
@@ -591,8 +594,9 @@ export default function App() {
                     <tr style={{ background: '#1e293b', color: '#fff', textAlign: 'left' }}>
                       <th style={{ padding: '8px' }}>Trabajador</th>
                       <th style={{ padding: '8px' }}>Última Obra</th>
-                      <th style={{ padding: '8px' }}>Días Asistidos Semanales</th>
-                      <th style={{ padding: '8px' }}>% Asistencia Acumulada</th>
+                      <th style={{ padding: '8px' }}>Días Asistidos (Lunes-Sábado)</th>
+                      <th style={{ padding: '8px' }}>Total Días</th>
+                      <th style={{ padding: '8px' }}>% Asistencia</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -600,7 +604,23 @@ export default function App() {
                       <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px', fontWeight: 'bold' }}>{t.nombre}</td>
                         <td style={{ padding: '8px', color: '#64748b' }}>{t.obraNombre}</td>
-                        <td style={{ padding: '8px' }}>{t.diasAsistidos} / 6 días</td>
+                        <td style={{ padding: '8px' }}>
+                          {diasSemanaList.map(d => (
+                            <span key={d} style={{ 
+                              display: 'inline-block', 
+                              padding: '2px 6px', 
+                              marginRight: '4px', 
+                              borderRadius: '4px', 
+                              fontSize: '0.75rem', 
+                              background: t.diasList.includes(d) ? '#dcfce7' : '#f1f5f9', 
+                              color: t.diasList.includes(d) ? '#15803d' : '#94a3b8',
+                              fontWeight: t.diasList.includes(d) ? 'bold' : 'normal'
+                            }}>
+                              {d.substring(0,3)} {t.diasList.includes(d) ? '✓' : '✗'}
+                            </span>
+                          ))}
+                        </td>
+                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{t.diasAsistidos} / 6 días</td>
                         <td style={{ padding: '8px', fontWeight: 'bold', color: t.porcentaje >= 80 ? '#16a34a' : '#d97706' }}>
                           {t.porcentaje}%
                         </td>
