@@ -10,7 +10,7 @@ export default function App() {
   const [tab, setTab] = useState('trabajador');
   const [cargando, setCargando] = useState(true);
 
-  // Obras base por defecto con su estructura completa
+  // Obras por defecto con estructura base completa
   const obrasPorDefecto = {
     'LARAPA-01': { id: 'LARAPA-01', nombre: 'Obra Larapa 01 (Casa Residencial)', ubicacion: 'Sector Larapa #12', presupuestoTotal: 6500, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
     'LARAPA-02': { id: 'LARAPA-02', nombre: 'Obra Larapa 02 (Remodelación Eléctrica)', ubicacion: 'Sector Larapa #45', presupuestoTotal: 4200, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
@@ -23,11 +23,11 @@ export default function App() {
   const [asistenciasGlobales, setAsistenciasGlobales] = useState({});
   const [historialPagosPersonal, setHistorialPagosPersonal] = useState([]);
 
-  // CONSULTAR BASE DE DATOS EN SUPABASE AL INICIAR
+  // CONSULTAR BASE DE DATOS SUPABASE EN TIEMPO REAL
   const cargarDatosSupabase = async () => {
     setCargando(true);
     try {
-      // 1. Obras
+      // 1. Cargar Obras
       const { data: dataObras, error: errObras } = await supabase.from('obras').select('*');
       if (!errObras && dataObras && dataObras.length > 0) {
         setObras((prev) => {
@@ -50,20 +50,26 @@ export default function App() {
         });
       }
 
-      // 2. Asistencias (Carga limpia directa desde Supabase)
+      // 2. Cargar Asistencias (Lee tanto arreglos como texto JSON para evitar fallas)
       const { data: dataAsis, error: errAsis } = await supabase.from('asistencias').select('*');
       if (!errAsis && dataAsis) {
         const mapAsis = {};
         dataAsis.forEach((a) => {
+          let listaDias = [];
+          if (Array.isArray(a.dias)) {
+            listaDias = a.dias;
+          } else if (typeof a.dias === 'string') {
+            try { listaDias = JSON.parse(a.dias); } catch(e) { listaDias = a.dias.split(','); }
+          }
           mapAsis[a.trabajador] = {
-            dias: Array.isArray(a.dias) ? a.dias : [],
+            dias: listaDias,
             ultimaObra: a.obra_id || ''
           };
         });
         setAsistenciasGlobales(mapAsis);
       }
 
-      // 3. Pagos del Dueño
+      // 3. Cargar Pagos del Dueño
       const { data: dataPagos } = await supabase.from('pagos_dueno').select('*');
       if (dataPagos) {
         setObras((prev) => {
@@ -78,7 +84,7 @@ export default function App() {
         });
       }
     } catch (e) {
-      console.warn("Modo sincronización activo:", e);
+      console.warn("Error leyendo de Supabase:", e);
     } finally {
       setCargando(false);
     }
@@ -88,7 +94,7 @@ export default function App() {
     cargarDatosSupabase();
   }, []);
 
-  // Estados de los formularios
+  // Formulario estados
   const [nombreTrabajador, setNombreTrabajador] = useState('');
   const [diaSemana, setDiaSemana] = useState('Lunes');
   const [obraSeleccionada, setObraSeleccionada] = useState('LARAPA-01');
@@ -133,7 +139,7 @@ export default function App() {
     }
   };
 
-  // REGISTRAR TRABAJADOR Y GUARDAR ASISTENCIA EN SUPABASE
+  // REGISTRAR ASISTENCIA Y AVANCE (GUARDANDO EN SUPABASE)
   const handleRegistrarJornadaUnificada = async (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -148,7 +154,7 @@ export default function App() {
     const totalDiasCount = nuevosDias.length;
     const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
 
-    // Actualizar estado local inmediatamente
+    // Actualizar pantalla
     setAsistenciasGlobales((prev) => ({
       ...prev,
       [nombreClean]: {
@@ -157,13 +163,17 @@ export default function App() {
       }
     }));
 
-    // GUARDAR OBLIGATORIO EN BASE DE DATOS SUPABASE
+    // GUARDAR OBLIGATORIAMENTE EN NUBE SUPABASE
     try {
-      await supabase.from('asistencias').upsert({
+      const resAsis = await supabase.from('asistencias').upsert({
         trabajador: nombreClean,
         obra_id: obraSeleccionada,
         dias: nuevosDias
       }, { onConflict: 'trabajador' });
+
+      if (resAsis.error) {
+        alert("Aviso Supabase: " + resAsis.error.message);
+      }
     } catch(err) {
       console.error("Error guardando asistencia:", err);
     }
@@ -230,7 +240,7 @@ export default function App() {
     }
   };
 
-  // REGISTRAR PAGO DEL DUEÑO
+  // REGISTRAR PAGO DEL DUEÑO DE CASA
   const handleRealizarPagoDueno = async (e) => {
     e.preventDefault();
     const pago = parseFloat(montoPago);
