@@ -10,7 +10,7 @@ export default function App() {
   const [tab, setTab] = useState('trabajador');
   const [cargando, setCargando] = useState(true);
 
-  // Obras por defecto con estructura base completa
+  // Obras base por defecto
   const obrasPorDefecto = {
     'LARAPA-01': { id: 'LARAPA-01', nombre: 'Obra Larapa 01 (Casa Residencial)', ubicacion: 'Sector Larapa #12', presupuestoTotal: 6500, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
     'LARAPA-02': { id: 'LARAPA-02', nombre: 'Obra Larapa 02 (Remodelación Eléctrica)', ubicacion: 'Sector Larapa #45', presupuestoTotal: 4200, montoRecibido: 0, porcentajeAvance: 0, avancesPorDia: { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0, 'Sábado': 0 }, foto: null, finalizada: false, pagosDueno: [] },
@@ -50,7 +50,7 @@ export default function App() {
         });
       }
 
-      // 2. Cargar Asistencias (Lee tanto arreglos como texto JSON para evitar fallas)
+      // 2. Cargar Asistencias con compatibilidad universal de formatos
       const { data: dataAsis, error: errAsis } = await supabase.from('asistencias').select('*');
       if (!errAsis && dataAsis) {
         const mapAsis = {};
@@ -59,11 +59,15 @@ export default function App() {
           if (Array.isArray(a.dias)) {
             listaDias = a.dias;
           } else if (typeof a.dias === 'string') {
-            try { listaDias = JSON.parse(a.dias); } catch(e) { listaDias = a.dias.split(','); }
+            try { 
+              listaDias = JSON.parse(a.dias); 
+            } catch(e) { 
+              listaDias = a.dias.split(',').map(s => s.trim()).filter(Boolean); 
+            }
           }
           mapAsis[a.trabajador] = {
             dias: listaDias,
-            ultimaObra: a.obra_id || ''
+            ultimaObra: a.obra_id || a.obra || ''
           };
         });
         setAsistenciasGlobales(mapAsis);
@@ -94,7 +98,6 @@ export default function App() {
     cargarDatosSupabase();
   }, []);
 
-  // Formulario estados
   const [nombreTrabajador, setNombreTrabajador] = useState('');
   const [diaSemana, setDiaSemana] = useState('Lunes');
   const [obraSeleccionada, setObraSeleccionada] = useState('LARAPA-01');
@@ -139,7 +142,7 @@ export default function App() {
     }
   };
 
-  // REGISTRAR ASISTENCIA Y AVANCE (GUARDANDO EN SUPABASE)
+  // REGISTRAR ASISTENCIA Y GUARDAR FORZADO
   const handleRegistrarJornadaUnificada = async (e) => {
     e.preventDefault();
     const nombreClean = nombreTrabajador.trim();
@@ -154,7 +157,7 @@ export default function App() {
     const totalDiasCount = nuevosDias.length;
     const porcentajeGlobal = Math.round((totalDiasCount / 6) * 100);
 
-    // Actualizar pantalla
+    // Actualizar estado local
     setAsistenciasGlobales((prev) => ({
       ...prev,
       [nombreClean]: {
@@ -163,16 +166,21 @@ export default function App() {
       }
     }));
 
-    // GUARDAR OBLIGATORIAMENTE EN NUBE SUPABASE
+    // GUARDAR EN SUPABASE ENVIANDO AMBOS FORMATOS
     try {
-      const resAsis = await supabase.from('asistencias').upsert({
+      const { error: errUpsert } = await supabase.from('asistencias').upsert({
         trabajador: nombreClean,
         obra_id: obraSeleccionada,
         dias: nuevosDias
       }, { onConflict: 'trabajador' });
 
-      if (resAsis.error) {
-        alert("Aviso Supabase: " + resAsis.error.message);
+      if (errUpsert) {
+        // Reintento con formato texto por si la columna en Supabase es 'text'
+        await supabase.from('asistencias').upsert({
+          trabajador: nombreClean,
+          obra_id: obraSeleccionada,
+          dias: JSON.stringify(nuevosDias)
+        }, { onConflict: 'trabajador' });
       }
     } catch(err) {
       console.error("Error guardando asistencia:", err);
@@ -198,21 +206,17 @@ export default function App() {
         }
       }));
 
-      try {
-        await supabase.from('obras').upsert({ 
-          id: obraSeleccionada,
-          nombre: obraPrev.nombre,
-          ubicacion: obraPrev.ubicacion,
-          presupuesto_total: obraPrev.presupuestoTotal,
-          monto_recibido: obraPrev.montoRecibido,
-          porcentaje_avance: nuevoTotalAvance,
-          avances_por_dia: nuevosAvancesDia,
-          foto: fotoGuardar,
-          finalizada: obraPrev.finalizada
-        });
-      } catch(err) {
-        console.error(err);
-      }
+      await supabase.from('obras').upsert({ 
+        id: obraSeleccionada,
+        nombre: obraPrev.nombre,
+        ubicacion: obraPrev.ubicacion,
+        presupuesto_total: obraPrev.presupuestoTotal,
+        monto_recibido: obraPrev.montoRecibido,
+        porcentaje_avance: nuevoTotalAvance,
+        avances_por_dia: nuevosAvancesDia,
+        foto: fotoGuardar,
+        finalizada: obraPrev.finalizada
+      });
     }
 
     setTicketAsistencia({
@@ -240,7 +244,6 @@ export default function App() {
     }
   };
 
-  // REGISTRAR PAGO DEL DUEÑO DE CASA
   const handleRealizarPagoDueno = async (e) => {
     e.preventDefault();
     const pago = parseFloat(montoPago);
@@ -269,12 +272,8 @@ export default function App() {
       }
     }));
 
-    try {
-      await supabase.from('obras').update({ monto_recibido: nuevoTotalRecibido }).eq('id', obraConsultadaId);
-      await supabase.from('pagos_dueno').insert({ obra_id: obraConsultadaId, fecha: fechaActual, monto: pago });
-    } catch(err) {
-      console.error(err);
-    }
+    await supabase.from('obras').update({ monto_recibido: nuevoTotalRecibido }).eq('id', obraConsultadaId);
+    await supabase.from('pagos_dueno').insert({ obra_id: obraConsultadaId, fecha: fechaActual, monto: pago });
 
     alert(`✓ Pago de S/. ${pago.toFixed(2)} recibido y guardado en la base de datos.`);
     setMontoPago('');
@@ -304,9 +303,7 @@ export default function App() {
   const handleReiniciarAsistenciasSemana = async () => {
     if (window.confirm('¿Deseas reiniciar las asistencias semanales a 0 para iniciar una nueva semana?')) {
       setAsistenciasGlobales({});
-      try {
-        await supabase.from('asistencias').delete().neq('trabajador', '');
-      } catch(e){}
+      await supabase.from('asistencias').delete().neq('trabajador', '');
       alert('✓ Asistencias semanales reiniciadas correctamente.');
     }
   };
@@ -317,10 +314,7 @@ export default function App() {
         ...prev,
         [idObra]: { ...prev[idObra], finalizada: true, porcentajeAvance: 100 }
       }));
-
-      try {
-        await supabase.from('obras').update({ finalizada: true, porcentaje_avance: 100 }).eq('id', idObra);
-      } catch(e){}
+      await supabase.from('obras').update({ finalizada: true, porcentaje_avance: 100 }).eq('id', idObra);
     }
   };
 
